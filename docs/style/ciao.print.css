@@ -1,0 +1,166 @@
+/*
+ * The 'print' version of the stylesheet 
+ *
+ * The Chandra X-Ray Center (CXC) is operated for NASA:
+ *   Smithsonian Astrophysical Observatory
+ *   60 Garden Street
+ *   Cambridge
+ *   MA 02138
+ *   USA
+ * Email: cxcweb@head-cfa.harvard.edu
+ *
+ * Smithsonian Institution, Copyright © 1998-2012, 2013. All rights reserved. 
+ */
+
+/*
+ * From the CXC header/footer items
+ * (need to add these classes to the SSI files)
+ */
+div#cxcheader, div#cxcfooter { display: none; }
+
+img { page-break-inside: auto; }
+
+/* remove background image */
+
+#main {background: #ffffff;}
+#navbar   { display: none; }
+#content {width: 100%;}
+
+/*
+ * hide various bits of information
+ */
+.hideme   { display: none; }
+.noprint  { display: none; }
+
+div.searchbar { display: none; }
+div.pdfbar    { display: none; }
+.qlinkbar  { display: none; }
+
+/*
+ * move some info to the top-right of the page
+ * - need to improve the mark-up for these sections
+ *   so the display is more natural
+ */
+div.lastmodbar {
+  font-weight: bold;
+  position: absolute;
+  left: 1em;
+  top: 2em;
+  font-size: 80%;
+  padding-top: 0;
+}
+div.urlbar {
+  display: block;
+  font-weight: bold;
+  font-size: 80%;
+  position: absolute;
+  right: 1em;
+  top: 2em;
+}
+
+div.bottombar { display: none; }
+
+/*
+ * Looks like the main content can be in #main or .mainbar,
+ * and we want to move it down so that it does not get overwritten
+ * by the last-modified date or URL (.lastmodbar/.urlbar).
+ * The ahelp pages are different as well (of course), but it's not
+ * obvious that they need any extra spacing here.
+ */
+div#main, div.mainbar {
+  padding-top: 2em;
+}
+
+/*
+table.ahelpheader {
+  padding-top: 1em;
+}
+*/
+
+.screen pre, pre.highlight {
+  overflow: hidden;
+}
+
+/*
+ * set up the links; we do not try and disambiguate 'ahelp' links
+ * from any other links
+ * - the underline does not work (at least in safari v1.2)
+ */
+
+a:link, a:visited {
+        text-decoration: underline;
+        font-weight: bold;
+}
+
+pre.paramlist { font-size: 90%; }
+
+/*
+ * targetted removal of the 'Archive Search' link in the
+ * thread data table
+ */
+table#threaddatatable a.tablehead {
+  display: none;
+}
+
+.printmedia {
+    display: block;
+}
+
+
+/* table handling  */
+
+
+table.ciaotable th, table.ahelptable thead th, table#scripttable thead th {
+    background: #ffffff;
+    color: #000000;
+    font-weight: bold;
+    text-align: center;
+    padding: 5px;
+}
+
+.ciaotable {
+   border-collapse: collapse;
+}
+
+table.ciaotable tbody td, .wrap .newsitem {
+   border-bottom: 2px solid #000;
+}
+
+table.scripts {
+   border: 2px solid #000;
+}
+
+
+/*
+ * Experimental support for figures in threads.
+ */
+
+div.figure {
+    margin: 2em;
+}
+
+div.figure > div > div.printmedia > img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Hide the screen media version of the figure */
+.screenmedia {
+    display: none;
+}
+
+
+/* CXC logo used at start of threads */
+div.printmedia > div.cxclogo {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* could the following be handled by clever use of selectors? */
+div.clearfloat {
+    clear: both;
+}
+
+/* end of stylesheet */

@@ -1,0 +1,441 @@
+<html lang="en">
+<head>
+<title>Teng Liu</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="description" content="Teng Liu home page developing">
+<link rel="stylesheet" title="Default stylesheet for CIAO-related pages" href="style/ciao.css">
+<link rel="stylesheet" title="Default stylesheet for CIAO-related pages" media="print" href="style/ciao.print.css">
+<link rel="canonical" href="http://www.google.it">
+<link rel="icon" href="">
+<meta name="title" content="Bug List - CIAO 4.6">
+<meta name="creator" content="SAO-HEA">
+<meta http-equiv="content-language" content="en-US">
+<meta name="date" content="2014-09-11">
+<meta name="subject" content="The CIAO software package for analyzing data from X-ray telescopes, including the Chandra X-ray telescope.">
+<meta name="description" content="The CIAO software package for analyzing data from X-ray telescopes, including the Chandra X-ray telescope.">
+<meta name="keywords" content="SI,Smithsonian,Smithsonian Institute">
+<meta name="keywords" content="CfA,SAO,Harvard-Smithsonian,Center for Astrophysics">
+<meta name="keywords" content="HEA,HEAD,High Energy Astrophysics Division">
+<!--Frame busting from http://securestate.blogspot.com/2010/08/xfs-101-cross-frame-scripting-explained.html-->
+<meta http-equiv="X-Frame-Options" content="Deny">
+<style type="text/css">html { display: none; }</style>
+<script type="text/javascript">
+if (self == top) {
+  document.documentElement.style.display = 'block';
+} else {
+  top.location = self.location;
+}
+    </script>
+</head><body> 
+ 
+<div id="cxcheader">
+	
+  <div id="cxcheaderleft">
+       <a href=""> <img style="min-width: 100%" id="spacecraft" src="EXSdetect.png" alt=""></a>
+  </div>
+  <div id="cxcheaderright">
+	  <ul>
+   	      <li><a href="">Data Analysis</a></li>   
+	      <li><a  href="">Archive</a></li>          
+	      <li><a  href="">Proposer</a></li>    
+	  </ul>              
+
+	  <ul>
+           <li><a href="">For the Public</a></li>
+	  </ul>        
+
+  </div>
+</div>
+
+
+<!--CONTENT-->
+<div class="wrap">
+<div class="noprint"> </div>
+<table class="ahelpheader" width="100%"><tbody><tr>
+<td align="center" width="40%"><h1 class="ahelp">EXSdetect</h1></td>
+</tr></tbody></table>
+<h2><a name="synopsis">Synopsis</a></h2>
+<p>
+    EXSdetect: Extended X-ray Source Detection
+   </p>
+<div class="ahelpsyntax">
+<h2><a name="syntax">Syntax</a></h2>
+<pre class="highlight">mkwarf  infile outfile weightfile spectrumfile egridspec [pbkfile]
+[threshold] [feffile] [mskfile] [asolfile] [mirror] [detsubsysmod]
+[dafile] [ardlibpar] [geompar] [clobber] [verbose]</pre>
+</div>
+<h2><a name="description">Description</a></h2>
+      <p>
+	`mkwarf' creates a weighted ARF file based on an input weight
+	map (WMAP). It also produces a set of weights that are used by
+	`mkrmf' to create the associated weighted RMF. The use of a
+	weighted response may allow one RMF and ARF to be used to
+	analyze a spectrum extracted from a large area that covers
+	multiple FEF regions (and hence a range of spectral
+	responses).
+      </p>
+
+      <h3><a name="Assumptions_and_Caveats">Assumptions and Caveats</a></h3>
+<p>
+	Please note that the algorithm used by mkwarf and mkrmf for
+	calculating the weighted responses assumes that there is no
+	spatial variation in the source spectrum across the extraction
+	region(s) used. In addition, it should only be used to create
+	"PI" responses - ie for the analysis of spectra binned over
+	the PI column and not the PHA column.
+      </p>
+
+      <h3><a name="Creating_the_Weight_Map_(WMAP)">Creating the Weight Map (WMAP)</a></h3>
+<p>
+	The WMAP should be created by running the tool <a href="http://cxc.harvard.edu/ciao/ahelp/sky2tdet.html">sky2tdet</a>.
+	sky2tdet projects an image for a region of interest in
+	sky(x,y) coordinates to TDET (tiled detector) coordinates.
+	This WMAP properly accounts for chip edges and bad pixels in 
+	the response file.   Users should no longer use the dmextract
+	tool to create WMAPs for use with mkwarf.
+      </p>
+
+      <h3><a name="How_to_weight_the_WMAP">How to weight the WMAP</a></h3>
+<p>
+	Ideally, the response function for a given region should be
+	weighted by the fraction of the incident flux from the source
+	that falls within that region. However, this is generally what
+	we are looking to obtain from the observation!  We instead
+	know the distribution of counts (i.e. the incident flux after 
+	it has passed through the telescope mirror and been absorbed
+	by the detector) across the regions. Below we discuss two
+	possible approaches to the problem; the choice of which - if
+	either - is better depends on the characteristics of the data
+	and the science objectives of the analysis.
+      </p>
+
+      <h3><a name="a._spectrumfile=none">a. spectrumfile=none</a></h3>
+<p>
+	The simplest approach is to use the raw counts to weight the
+	response (in which the spectrumfile parameter should be set to
+	none). This means that the weights will include the effect of
+	the mirror response and detector QE (including bad pixels) -
+	ie the effective area term - which may bias the spectral
+	fits. One way to minimise this is to pick a restricted energy
+	range over which to make the weight map, one over which the
+	effective area (or, more correctly, the product of the source
+	spectrum and the effective area) does not vary strongly. 
+      </p>
+
+      <h3><a name="b._using_the_spectrumfile_parameter">b. using the spectrumfile parameter</a></h3>
+<p>
+	Another approach is to use the spectrum of the source to
+	correct the detected counts for the effective area of the
+	telescope/instrument combination. Of course, we don't know the
+	source spectrum to use to correct the model.   One approach is
+	therefore to use an iterative scheme, where the spectral model
+	used to weight the WMAP is updated after each fit. The
+	spectrumfile parameter is used to supply the an ASCII source
+	model file to use in weighting the WMAP. Note that the energy
+	range of the spectrum should be adjusted to match that used to
+	create the WMAP.
+      </p>
+
+      <p>
+	Examples of creating weighted ARFs can be found in the
+	<a href="http://cxc.harvard.edu/ciao/threads/ispec.html">CIAO science threads</a>.
+      </p>
+   <a name="examples"></a><h2><a name="example1">Example 1</a></h2>
+<div class="ahelpsyntax"><pre class="highlight">mkwarf "spectrum1.fits[wmap]" spectrum1.warf spectrum1.wgt none
+0.5:9.5:0.02</pre></div>
+            <p>
+		This will create a weighted ARF, called
+	        spectrum1.warf, over the energy grid of 0.5 to 9.5 keV in
+		20 eV bins.  The weighting uses the pixel values in
+		the WMAP extension of the input PHA file
+		(spectrum1.fits), with no spectral weighting.
+            </p>
+            <p>
+                The weights file created by mkwarf would then be used
+		in mkrmf by setting:
+            </p>
+<div class="ahelpverbatim"><pre class="highlight">  unix% pset mkrmf weights=spectrum1.wgt
+  unix% pset mkrmf infile=CALDB
+  unix% pset mkrmf axis1="energy=0:1"
+</pre></div>
+            <p>
+		where the infile parameter is set to CALDB since we do
+		not need to use acis_fef_lookup in this case, and the
+		value for the energy grid is irrelevant (as long as
+		something is supplied) since it's overridden by the
+		energy grid in the weights file (here spectrum1.wgt).
+            </p>
+         <h2><a name="example2">Example 2</a></h2>
+<div class="ahelpsyntax"><pre class="highlight">mkwarf "spectrum2.fits[wmap]" spectrum2.warf spectrum2.wgt none
+0.5:9.5:0.02 threshold=0.01</pre></div>
+            <p>
+		As with example 1, but this time only those FEF regions
+		which contain at least 1 percent of the total counts
+		are included in the calculation of the weighted ARF.
+		This option can be used to speed up mkrmf by removing
+		the need to calculate RMFs for regions which do not
+		significantly contribute to the response. The choice
+		of thresehold depends on both the distribution of
+		counts across the WMAP and the science objectives of
+		your analysis.
+            </p>
+         <h2><a name="example3">Example 3</a></h2>
+<div class="ahelpsyntax"><pre class="highlight">mkwarf "sources.pi[WMAP]" sources.warf sources.wgt
+egridspec=0.01:11:0.01 dafile=CALDB</pre></div>
+            <p>
+		Create a weighted ARF over the energy grid of 0.01 to
+		11 keV in 0.01 eV bins.  The dafile
+		parameter is set to apply the dead area correction.
+            </p>
+         <h2><a name="example4">Example 4</a></h2>
+<div class="ahelpsyntax"><pre class="highlight">mkwarf csmooth_out.fits spectrum3.warf spectrum3.wgt spec.txt
+"grid(spectrum1.rmf[MATRIX][cols ENERG_LO,ENERG_HI])"</pre></div>
+            <p>
+		This will use the (supposedly) smoothed image in
+		'csmooth_out.fits' as the WMAP with the spectral
+		weights in the ASCII file 'spec.txt' to create the ARF
+		and RMF weights on an energy grid that matches that of
+		the RMF stored in spectrum1.rmf.
+            </p>
+         <h2><a name="ptable">Parameters</a></h2>
+<table class="ciaotable">
+<thead><tr>
+<th>name</th>
+<th>type</th>
+<th>ftype</th>
+<th>def</th>
+<th>min</th>
+<th>max</th>
+<th>reqd</th>
+<th>stacks</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.infile">infile</a></td>
+<td>file</td>
+<td>input</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>yes</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.outfile">outfile</a></td>
+<td>file</td>
+<td>output</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>yes</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.weightfile">weightfile</a></td>
+<td>file</td>
+<td>output</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>yes</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.spectrumfile">spectrumfile</a></td>
+<td>file</td>
+<td>input</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>yes</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.egridspec">egridspec</a></td>
+<td>string</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>yes</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.pbkfile">pbkfile</a></td>
+<td>string</td>
+<td>input</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>no</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.threshold">threshold</a></td>
+<td>float</td>
+<td>&nbsp;</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.feffile">feffile</a></td>
+<td>file</td>
+<td>ARD</td>
+<td>CALDB</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.mskfile">mskfile</a></td>
+<td>file</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.asolfile">asolfile</a></td>
+<td>file</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.mirror">mirror</a></td>
+<td>string</td>
+<td>&nbsp;</td>
+<td>HRMA</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.detsubsysmod">detsubsysmod</a></td>
+<td>string</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.dafile">dafile</a></td>
+<td>string</td>
+<td>input</td>
+<td>CALDB</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.ardlibpar">ardlibpar</a></td>
+<td>file</td>
+<td>&nbsp;</td>
+<td>ardlib</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.geompar">geompar</a></td>
+<td>file</td>
+<td>&nbsp;</td>
+<td>geom</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.clobber">clobber</a></td>
+<td>boolean</td>
+<td>&nbsp;</td>
+<td>no</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td><a title="Jump to parameter description" href="http://cxc.harvard.edu/ciao/ahelp/mkwarf.html#plist.verbose">verbose</a></td>
+<td>integer</td>
+<td>&nbsp;</td>
+<td>0</td>
+<td>0</td>
+<td>5</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+<br><h2><a name="plist">Detailed Parameter Descriptions</a></h2>
+<h4>
+<a name="plist.infile">Parameter=infile</a><tt> (file required filetype=input)</tt>
+</h4>
+
+
+
+<!--CONTENT-->
+    
+
+</div></div>
+
+<!-- <div id="navbar"><div class="wrap"> -->
+<!-- <a name="navtext"></a>  -->
+<!-- <div> -->
+<!-- <dl> -->
+<!-- <dt><span class="heading">Introduction</span></dt> -->
+<!-- 	<dd><a href="">Welcome</a></dd> -->
+<!-- <dt><span class="selectedheading">EXSdetect</span></dt> -->
+<!-- 	<dd><a href="">Introduction</a></dd> -->
+<!-- </dl> -->
+<!-- </div> -->
+<!-- </div></div> -->
+
+</div>
+ 
+<br clear="all"><div class="bottombar">
+<p></p>
+</div>
+ 
+<div id="cxcfooter">
+	<div id="cxcfooterleft">
+<!--	<img src="/incl/cxcfooterCXCicon.png" alt="CXC logo" >
+                <a href="http://www.si.edu"><img src="/incl/cxc_saologo.png" alt = "Smithsonian Institute"></a>-->
+<p>Last modified:<br> 10 Oct 2014 </p>
+	</div>
+
+	<div id="cxcfooterright">
+
+<p>
+Ha ha~, you know where the web page style is stolen from.
+<!-- Email: <a style="color:white;" href="mailto:lewtonstein@gmail.com">lewtonstein@gmail.com</a> -->
+</p>
+
+        </div> 
+<!--
+<div style="float:right;width: 8%;">
+<a href="http://si.edu"><img src="/incl/smithsonian.png" alt="SI logo"
+style="float:right"></a>
+
+</div>
+-->
+</div>
+
+</div>
+ 
+</body></html>

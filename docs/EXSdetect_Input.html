@@ -1,0 +1,143 @@
+<html lang="en">
+<head>
+<title>Teng Liu</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="description" content="Teng Liu home page developing">
+<link rel="stylesheet" title="Default stylesheet for CIAO-related pages" href="style/ciao.css">
+<link rel="stylesheet" title="Default stylesheet for CIAO-related pages" media="print" href="style/ciao.print.css">
+<link rel="icon" href="style/patrick.ico">
+<style type="text/css">html { display: none; }</style>
+<script type="text/javascript">
+if (self == top) {
+  document.documentElement.style.display = 'block';
+} else {
+  top.location = self.location;
+} </script>
+</head>
+<body> 
+ 
+<div id="cxcheader">
+	
+  <div id="cxcheaderleft">
+       <a href="#ThankCXC"><img style="min-width: 100%" id="titlepicture" src="Figures/EXSdetect.png" alt="aa"></a>
+  </div>
+  <div id="cxcheaderright">
+	  <ul>
+   	      <li><a href="EXSdetect_Introduction.html">EXSdetect</a></li>   
+	      <li><a href="SweepLine_Introduction.html">SweepLine</a></li>          
+	      <li><a href="EXSdetect_Download.html">Download</a></li>
+	  </ul>              
+
+	  <ul>
+           <li><a href="../index.html">SWXCS</a></li>
+	  </ul>        
+
+  </div>
+</div>
+ 
+<div class="topbarcontainer withnavbar">
+	<div class="topbar"> <p></p> </div>
+</div>
+
+<div id="main"> <!--main-->
+
+<div id="content"> <!--content-->
+<div class="wrap"> <!--wrap-->
+<!--ENDHEAD-->
+<!--BEGINCONTENT-->
+<table class="ahelpheader" width="100%"><tbody><tr>
+<td align="center" width="40%"><h1 class="ahelp">EXSdetect</h1></td>
+</tr></tbody></table>
+<hr size="5" noshade="">
+<h2><a>The input image</a></h2>
+<p>The image is expected to be a typical, square, photon count image, that is, a FITS file containing an NxN array of integer numbers.</p>
+<p>The image is expected be sparse, i.e., with a majority of pixels being empty, as what a typical X-ray image is like. The performance of EXSdetect in case of very dense image (with a very long exposure time) is not under well control.</p>
+<p>Attention should be make to reprojected images, in which one count from one pixel may be redistributed into a few neighboring pixels during the reprojection, resulting in float pixel values.
+If you want to use combined image from different observations, please combine the event files and make an image from the combined event file rather than combine the images, so as to avoid image reprojection and guarentee integer values in the image.</p>
+<hr size="5" noshade="">
+<h2><a name="ptable">Options</a></h2>
+<h4><a>-e, --expmap <u>expmapfile</u></a><tt>(required)</tt></h4>
+<p>Input exposure map file.</p>
+
+<h4><a name="backgroundoption">-b, --bkg <u>Bkg value or Bkg region</u> </a><tt>(optional) default=None</tt></h4>
+<p>Set the "Bkg" parameter.</p>
+<p>		If Bkg==None (default) the default background measurement method will be applied. If it fails in some special cases, the background can be set manually in the following two ways.</p>
+<p>		1. If a value is given, the background is assumed to be uniform and the value is taken as the average background flux. Multiplying this flux by the exposure map gives rise to the background map.</p>
+<p>		2.  If a region file is given, the average background is calculated from the user specified regions of the input image, taking account of the exposure map if given. </p>
+
+<a name="backgroundregiondefinition"></a>
+<div class="admonition note"><div class="note-inner">
+<img src="style/note.png" alt="[NOTE]">
+<div class="title"><span class="title"><tt>Background region file definition</tt></span></div>
+<p>If a ds9 region file is given, it must contain only some circles, and must be saved in "image" coordinate system. If circles marked as background are found, they are taken as background regions. Or else the circles are regarded as source regions, and the source-free region is defined as background sampling region.</p>
+<p>If a fits image file is given, the filled (>0) pixels are taken as the source regions and the empty (=0) pixels background.</p>
+</div></div>
+
+<h4><a>-i, --instrument <u>SWIFT / CHANDRA</u> </a><tt>(optional)</tt></h4>
+<p>		Now only "SWIFT" is supported.</p>
+<p>		By default, it reads the TELESCOP key from the image header.</p>
+
+<h4><a>-o, --outfile <u>string</u> </a><tt>(optional)</tt></h4>
+<p>		Set the output file name, which by default is is "exs_src"</p>
+<p>See <a href="EXSdetect_Output.html">EXSdetect Output</a> for details. </p>
+
+<h4><a>-p, --pixelsize <u>Pixel Size in arcsec</u> </a><tt>(optional)</tt></h4>
+<p>		By default, it is calculated using the CDELT1 and CDELT2 keys from the image header. The image is assumed to be a square, that is, abs(CDELT1)==abs(CDELT2).</p>
+
+<h4><a>--coreradius <u>Core Radius in pixels</u> </a><tt>(optional)</tt></h4>
+<p>		The default core radius is 5 pixel sizes. All the parameters associated with source classification were optimized on the basis of this parameter. So do not change it until you want to run simulations to reset all the associated parameters.</p>
+<!--
+<h4><a>-l, --linkingscale Linking scale of FoF, used only in case of General mode </a><tt>(optional)</tt></h4>
+<h4><a>--general General mode: do simple VT+FoF </a><tt>(optional)</tt></h4>
+-->
+<hr>
+This page is not completed.
+
+<!--ENDCONTENT-->
+<!--BEGINTAIL-->
+</div> <!--wrap-->
+</div> <!--content-->
+
+<div id="navbar">
+	<div class="wrap">
+	<dl>
+	<dt><span class="heading">EXSdetect</span></dt>
+		<dd><a href="EXSdetect_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+		<dd><a href="EXSdetect_Input.html">Input & Setting</a></dd>
+		<dd><a href="EXSdetect_Output.html">Output</a></dd>
+		<dd><a href="EXSdetect_Tricks.html">Tips & Tricks</a></dd>
+	<dt><span class="heading">Sweep Line</span></dt>
+		<dd><a href="SweepLine_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+		<dd><a href="SweepLine_Basic.html">Basic Function</a></dd>
+		<dd><a href="SweepLine_More.html">Extensions</a></dd>
+	<dt><span class="heading">Friend Of Friend</span></dt>
+		<dd><a href="FOF_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+	<dt><span class="heading">2D random</span></dt>
+		<dd><a href="2Drandom.html">Introduction</a></dd>
+	<dt><span class="heading">Links</span></dt>
+		<dd><a href="https://www.python.org/">Python</a></dd>
+		<dd><a href="http://www.numpy.org/">numpy</a></dd>
+		<dd><a href="http://www.scipy.org/">scipy</a></dd>
+		<dd><a href="http://www.stsci.edu/institute/software_hardware/pyfits">pyfits</a></dd>
+		<dd><a href="http://ds9.si.edu/site/Home.html">SAO ds9</a></dd>
+	</dl>
+	</div>
+</div>
+
+</div> <!--main-->
+ 
+<br clear="all"><div class="bottombar"><div class="lastmodbar">Last modified: December 2013</div></div>
+<div id="cxcfooter">
+	<div id="cxcfooterleft"> <img src="style/patrick_120x120.jpeg" alt="logo" style="float:center"> </div>
+	<div id="cxcfooterright">
+	<a name="ThankCXC"></a>
+	<p> Ha ha~, you know where the web page style is stolen from, if you are a X-ray astronomer. I like the <a href="http://cxc.harvard.edu/ciao/">"CIAO"</a> website a lot. Grazie, CIAO. I acknowledge the Chandra X-ray Center (CXC) for their excellent work.<br>
+	</p>
+	<a style="float:right;color:white;font-size:90%" href="mailto:lewtonstein@gmail.com">Teng Liu  Email: lewtonstein@gmail.com</a>
+	</div>
+</div>
+ 
+</body></html>

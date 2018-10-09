@@ -1,0 +1,121 @@
+<html lang="en">
+<head>
+<title>Teng Liu</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="description" content="Teng Liu home page developing">
+<link rel="stylesheet" title="Default stylesheet for CIAO-related pages" href="style/ciao.css">
+<link rel="stylesheet" title="Default stylesheet for CIAO-related pages" media="print" href="style/ciao.print.css">
+<link rel="icon" href="style/patrick.ico">
+<style type="text/css">html { display: none; }</style>
+<script type="text/javascript">
+if (self == top) {
+  document.documentElement.style.display = 'block';
+} else {
+  top.location = self.location;
+} </script>
+</head>
+<body> 
+ 
+<div id="cxcheader">
+	
+  <div id="cxcheaderleft">
+       <a href="#ThankCXC"><img style="min-width: 100%" id="titlepicture" src="Figures/EXSdetect.png" alt="aa"></a>
+  </div>
+  <div id="cxcheaderright">
+	  <ul>
+   	      <li><a href="EXSdetect_Introduction.html">EXSdetect</a></li>   
+	      <li><a href="SweepLine_Introduction.html">SweepLine</a></li>          
+	      <li><a href="EXSdetect_Download.html">Download</a></li>
+	  </ul>              
+
+	  <ul>
+           <li><a href="../index.html">SWXCS</a></li>
+	  </ul>        
+
+  </div>
+</div>
+ 
+<div class="topbarcontainer withnavbar">
+	<div class="topbar"> <p></p> </div>
+</div>
+
+<div id="main"> <!--main-->
+
+<div id="content"> <!--content-->
+<div class="wrap"> <!--wrap-->
+<!--ENDHEAD-->
+<!--BEGINCONTENT-->
+
+<table class="ahelpheader" width="100%"><tbody><tr>
+<td align="center" width="40%"><h1 class="ahelp">SweepLine.py</h1></td>
+</tr></tbody></table>
+<hr size="5" noshade="">
+<h2><a name="synopsis">Synopsis</a></h2>
+<p>
+Voronoi tessellation using the sweep-line algorithm.
+</p>
+<div align='center'><img src='Figures/Fortunes-algorithm.gif' alt='Animation of sweep line algorithm' title='Animation of the sweep line algorithm, from wikipedia'/></div>
+<h2><a name="Description">Description</a></h2>
+<p>SweepLine.py is a stand-alone Voronoi diagram construction program, which also contribute as an essential part of EXSdetect. In this program, the <a href="http://en.wikipedia.org/wiki/Fortune's_algorithm">sweep-line algorithm developed by Steven Fortune in 1986</a> is implemented with pure Python code. A few additional functions are also provided.</p>
+<h2><a name="syntax">Syntax</a></h2>
+<div class="ahelpverbatim"><pre class="highlight">
+  SweepLine.py inputfile [options]
+</pre></div>
+
+<h2><a name="Dependence">Dependence</a></h2>
+            <p>
+You need to have Python in your system, together with a few commonly used Python packages:
+<div class="ahelpverbatim"><pre class="highlight">
+  numpy    numerical python package
+  pyfits   interface to FITS formatted files
+</pre></div>
+It has only been tested with Python 2.7.
+
+<!--ENDCONTENT-->
+<!--BEGINTAIL-->
+</div> <!--wrap-->
+</div> <!--content-->
+
+<div id="navbar">
+	<div class="wrap">
+	<dl>
+	<dt><span class="heading">EXSdetect</span></dt>
+		<dd><a href="EXSdetect_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+		<dd><a href="EXSdetect_Input.html">Input & Setting</a></dd>
+		<dd><a href="EXSdetect_Output.html">Output</a></dd>
+		<dd><a href="EXSdetect_Tricks.html">Tips & Tricks</a></dd>
+	<dt><span class="heading">Sweep Line</span></dt>
+		<dd><a href="SweepLine_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+		<dd><a href="SweepLine_Basic.html">Basic Function</a></dd>
+		<dd><a href="SweepLine_More.html">Extensions</a></dd>
+	<dt><span class="heading">Friend Of Friend</span></dt>
+		<dd><a href="FOF_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+	<dt><span class="heading">2D random</span></dt>
+		<dd><a href="2Drandom.html">Introduction</a></dd>
+	<dt><span class="heading">Links</span></dt>
+		<dd><a href="https://www.python.org/">Python</a></dd>
+		<dd><a href="http://www.numpy.org/">numpy</a></dd>
+		<dd><a href="http://www.scipy.org/">scipy</a></dd>
+		<dd><a href="http://www.stsci.edu/institute/software_hardware/pyfits">pyfits</a></dd>
+		<dd><a href="http://ds9.si.edu/site/Home.html">SAO ds9</a></dd>
+	</dl>
+	</div>
+</div>
+
+</div> <!--main-->
+ 
+<br clear="all"><div class="bottombar"><div class="lastmodbar">Last modified: December 2013</div></div>
+<div id="cxcfooter">
+	<div id="cxcfooterleft"> <img src="style/patrick_120x120.jpeg" alt="logo" style="float:center"> </div>
+	<div id="cxcfooterright">
+	<a name="ThankCXC"></a>
+	<p> Ha ha~, you know where the web page style is stolen from, if you are a X-ray astronomer. I like the <a href="http://cxc.harvard.edu/ciao/">"CIAO"</a> website a lot. Grazie, CIAO. I acknowledge the Chandra X-ray Center (CXC) for their excellent work.<br>
+	</p>
+	<a style="float:right;color:white;font-size:90%" href="mailto:lewtonstein@gmail.com">Teng Liu  Email: lewtonstein@gmail.com</a>
+	</div>
+</div>
+ 
+</body></html>

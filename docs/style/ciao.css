@@ -1,0 +1,876 @@
+/*
+ * The Chandra X-Ray Center (CXC) is operated for NASA:
+ *   Smithsonian Astrophysical Observatory
+ *   60 Garden Street
+ *   Cambridge
+ *   MA 02138
+ *   USA
+ * Email: cxcweb@head.cfa.harvard.edu
+ *
+ * Smithsonian Institution, Copyright ? 1998-2010, 2013, 2014.
+ * All rights reserved. 
+ */
+
+/* Set up header/footer, over-riding where appropriate */ 
+@import url("cxcstyle_hf.css");
+
+#cxcheader {
+    background: #99cc67 url("greenfade2.jpg") repeat-y center right;
+}
+
+/* change div.bottombar if the cxcfooter changes */
+#cxcfooter {
+    background: #99cc67 url("greenfade2.jpg") repeat-y center right;
+}
+
+#cxcheaderright ul li a {
+    background-color: transparent;
+}
+
+#cxcheaderright ul li a:hover {
+    background-color: #6d9f48;
+}
+
+/* Default CIAO styles */
+
+body {
+	color: #000000;
+	background: #ffffff;
+	/* we used to specify Times but this does not display well on
+	   some Linux machines, so drop it
+	font: normal 100% Georgia, Times, serif;
+	*/
+	font: normal 100% Georgia, serif;
+}
+
+#main {
+    float: left;
+    width: 100%;
+    min-width: 740px;
+    /*background: #ffffff url(bg.gif) repeat-y 20% 0;lewton*/
+    background: #ffffff url(bg_15_85.gif) repeat-y 15% 0;
+}
+
+#navbar {
+  /*width: 20%;lewton*/
+  width: 15%;
+  float: left;
+  background: #99cc66;
+}
+
+#content {
+  float: right;
+  /*width: 80%;lewton*/
+  width: 85%;
+}
+
+.wrap {
+ padding: 1em;
+}
+
+h1 {
+   font-size: 2.0em; /* 32px / 16px = 2.0em */ 
+    }
+
+h2, h3 {
+    font-size: 1.25em; /* 20px / 16px = 1.25em */ 
+    }
+
+/* ensure that main text is below the header */
+div.mainbar, table.maintable { 
+  clear: both; 
+ padding: 0.5em;
+}
+
+hr.midsep {
+  width: 80%;
+  text-align: center;
+  margin: 30px auto;
+}
+
+
+/* links */
+
+a { 
+  color: #037D03;
+  }
+
+pre a, screen a { 
+  text-decoration: none;  	   
+  }
+
+a:hover { 
+  background: #ccffcc; 
+  }
+
+a img {
+  border: none;
+  }
+
+/* CIAO header and footer */
+
+div.topbarcontainer {
+    background: #99CC67 url('greenfade2.jpg') repeat-y center right;
+    overflow: auto;
+    width: 100%;
+}
+
+/* withnavbar is a horrible hack */
+div.topbarcontainer.withnavbar {
+    border-bottom-right-radius: 1em;
+    -webkit-border-bottom-right-radius: 1em;
+    -moz-border-bottom-right-radius: 1em;
+}
+
+/* The following are forced to only match on the presence of div.topbarcontainer
+   as I am not convinced all the pages have been converted to this style yet. */
+
+div.topbarcontainer div.lastmodbar {
+    padding: 1em;
+}
+div.topbarcontainer div.searchbar {
+    padding-right: 1em;
+    padding-bottom: 1em;
+    padding-top: 0; /* try and remove existing rule */
+}
+div.topbarcontainer span.searchbar {
+    color: white;
+    font-weight: normal;
+}
+div.topbarcontainer span.searchbar a {
+    color: white;
+}
+
+div.topbar { 
+    width: 100%; 
+}
+
+/*
+ * Make sure this is changed when cxcfooter background or radius is changed
+ * Need to make sure not applied to thread pages and other non-navbar pages,
+ * hence the somewhat specific selector below (could probaly use
+ * div#main ~ div.bottombar)
+ */
+
+div.bottombar {
+    background: #99cc67 url("greenfade2.jpg") repeat-y center right;
+    padding-left: 1em;
+}
+
+div#main + br + div.bottombar {
+    border-top-right-radius: 1em;
+    -webkit-border-top-radius: 1em;
+    -moz-border-top-radius: 1em;
+}
+
+div.lastmodbar, div.pdfbar, .qlinkbar, div.searchbar {
+  font-size: 90%;
+  }
+
+.navlinkbar, .pagetitle, .navimage, .scriptcell {
+  text-align: center;
+  }
+
+div.lastmodbar, div.searchbar {
+  padding-top: 10px;	
+  }
+
+.qlinkbar td {
+  vertical-align: top;
+  }
+
+.qlinkbar tr>td:first-child {
+  text-align: right;   
+  }
+
+
+ul.inlinenav {
+  text-align: center;	    
+  }
+
+ul.inlinenav li {
+  list-style: none;
+  display: inline;
+  }
+
+ul.inlinenav li:after {
+  content: " | ";
+  }
+
+ul.inlinenav li:last-child:after {
+  content: "";
+  }
+
+ul.inlinenav:after {
+    content: ".";
+    display: block;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+}
+
+span.searchbar {
+  color: #003300;
+  font-weight: bold;
+  }
+
+div.searchbar { 
+  float: right; 
+  width: 25em;
+  }
+
+div#advancedsearch { 
+  text-align: right; 
+  }
+
+/* TODO: move to using admonition rather than infobox */
+div.infobox {
+   background: #eee; 
+   border: 3px solid #003300; 
+   padding: 0.5em; 
+   margin: 0 40px 10px;
+}
+
+#workshop {
+  font-weight: bold;
+  font-size: 1.25em; /* 20px / 16px = 1.25em */	
+  text-align: center;
+  margin-top: 10px;
+  clear: both;
+  border: 2px #003300 solid;
+}
+
+.pheader {
+  font-size: 1.125em; /* 18px / 16px = 1.125em */	
+}	
+
+.date {
+  font-size: 0.90em; /* 13px / 14.4px = 0.90em (navbar is 90% of 16 = 14.4) */
+}	
+
+div.urlbar { 
+  display: none; 
+  }
+
+
+/* navigation bar */
+
+#navbar { 
+  font-size: 90%; 
+  }
+
+#navbar dt { 
+	padding-top: .1em;
+	}
+
+#navbar dd { 
+	margin-left: 1em; 
+	padding-top: .1em;
+	}
+
+#navbar a.indexlink { 
+  font-size: 115%; 
+  }
+
+#navbar .heading {
+  font-weight: bold;
+  color: #000000;
+  }
+
+#navbar .selectedheading {
+  font-weight: bold;
+  color: #000000;
+  background: #ccffcc;
+  }
+
+#navbar a { 
+  color: #003300;
+  }
+
+.newsdate {
+    font-style: italic;
+    padding-left: 10px;
+}
+
+.newsitem h3 {
+    font-size: 1.125em; /* 18px / 16px = 1.125em */	
+    margin-bottom: 0;
+}
+
+.newsitem p.newsdate {
+    margin-top: 0;
+    padding-left: 0;
+}
+
+.install {
+  padding-bottom: 5px;
+}
+
+.install div {
+  margin-left: 310px;
+  width: auto;
+}
+
+.install h3 {
+   float: left;
+   margin: 0 20px 0 40px;
+   width: 250px;
+   /* font: 600 1.5em Cambria, Times, serif;  */
+   font: 600 1.5em Cambria, serif; 
+   /* want baseline numerals for the button */
+   letter-spacing: 0.01em;
+}
+
+.feed a, .email a, .install h3 a {
+    display: inline-block;
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    text-decoration: none; 
+    text-align: center;
+}
+
+.install h3 a {
+    display: block;
+}
+
+.feed a {
+    border: 2px solid #003300; 
+    background: url(feed-icon.gif) no-repeat 10px 50%;
+    padding: 10px 10px 10px 50px;
+}
+
+.install .feed {
+   margin-left: 0;
+}
+
+.install .feed a { 
+   text-align: left;
+}
+
+.email a {
+    border: 2px solid #003300; 
+    background: url(Mail-icon.png) no-repeat 10px 50%;
+    padding: 10px 10px 10px 50px;
+}
+
+.install .email {
+   margin-left: 0;
+}
+
+.install .email a { 
+   text-align: left;
+}
+
+.install h3 a {
+    color: rgba(255, 255, 255, 1);
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    border: 1px solid #003300; 
+    background-color: #003300;
+    background-image: -webkit-linear-gradient(top , #037D03, #99cc66);
+    background-image: -moz-linear-gradient(center top , #037D03, #99cc66);
+    background-image: linear-gradient(center top , #037D03, #99cc66);
+}
+
+.install h3 a:hover {
+    color: rgba(255, 255, 255, 1);
+    background-image: -webkit-linear-gradient(top ,#99cc66, #037D03);
+    background-image: -moz-linear-gradient(center top ,#99cc66, #037D03);
+    background-image: linear-gradient(center top ,#99cc66, #037D03);
+    text-shadow: 0 -1px 2px rgba(0, 0, 0, 0.5);
+}
+
+#chartnav {
+  background-color: #cccccc; 
+  border: 2px solid #003300; 
+  text-align:center;
+  margin-bottom: 10px;
+  -webkit-border-radius: 10px;
+  -moz-border-radius: 10px;
+  border-radius: 10px;
+}
+
+/* download form */
+
+form dt {
+  font-weight: bold;
+  padding: 4px; 
+  margin-top: 25px; 
+}
+
+form dd>ul,form ul {
+  list-style-type: none;
+  }
+
+form dd {
+  margin: 0;
+  }
+
+form dd p {
+  padding-left: 25px;
+  }
+
+/* styling a button as a link from natbat
+   http://natbat.net/2009/Jun/10/styling-buttons-as-links/
+*/
+
+p.link {
+  text-align: center;
+}
+
+button.link {
+        color: #037D03;
+	background: none;
+	margin: 0;
+	padding: 0;
+	border: none;
+	cursor: pointer;
+	}
+
+button.link span {
+	text-decoration: underline;
+  	font-size: 1.125em; /* 18px / 16px = 1.125em */	
+	}	
+
+.newsbar, #threaddatatableheader { 
+  background: #003300;
+  color: #ffffff;
+  text-align: center;
+  padding: 2px;
+  }
+
+.newsbar h2 { 
+  font-size: 1.25em; /* 18px / 14.4px = 1.25em (navbar is 90% of 16 = 14.4) */
+  }
+
+.newsbar h3, #threaddatatableheader h3 { 
+  font-size: 0.875em; /* 14px / 16px = 0.875em */	
+  margin: 0;
+  }
+
+#navbar div.newsbar a, #threaddatatableheader a { 
+  background: #003300;
+  color: #ffffff;
+  }
+
+#navbar div.newsbar a:hover, #threaddatatableheader a:hover { 
+  background: #ccffcc;
+  color: #000000;
+  }
+
+table#threaddatatable { 
+  border: 1px solid #003300;
+  }
+
+table#threaddatatable td { 
+  padding: 10px;
+  }
+
+/*
+ * Table header and rows (initial version, may well change);
+ * the threadtable stuff should probably change to useing/including
+ * these styles
+ */
+
+table.ciaotable, table.ahelptable, table#scripttable {
+    border-width: 0px;
+}
+
+.scriptrow {
+   background-color: rgba(0, 0, 0, 0.15);
+}
+
+#scripttable td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);	  
+  }
+
+
+table.ciaotable, table.qlinkbar {
+  margin: auto;
+  }
+
+table.ciaotable th, table.ahelptable thead th, table#scripttable thead th {
+    background: #003300;
+    color: #ffffff;
+    text-align: center;
+    padding: 5px;
+}
+
+table.ciaotable th a, table.ahelptable thead th a, table#scripttable thead th a {
+    color: #ffffff;
+}
+table.ciaotable th a:hover, table.ahelptable thead th a:hover, table#scripttable thead th a:hover {
+    background: #003300;
+    color: #ffffff;
+}
+
+table.ahelptable th {
+    text-align: left;
+    padding: 5px;
+}
+
+table.ciaotable td, table.ahelptable td, table#scripttable td {
+    padding: 5px;    
+}
+
+table.ciaotable tbody tr:nth-child(even), div.wrap .newsitem:nth-child(2n-1)  {
+    background: #cccccc;
+}
+
+div.newsitem {
+   padding: 5px 10px;	     
+}
+
+div.newsitem div {
+   padding-left: 30px;	     
+}
+
+
+.newstable td {
+    vertical-align: top;
+}
+
+/* screen output 
+ * - the fact that we use htmldoc to create the PDF versions from
+ *   specially-prepared versions of the web page limits the use of CSS
+ *   in the main text
+ */
+
+pre.paramlist { 
+  font-size: 90%; 
+  }
+
+
+/* highlight a box
+ * (introduced for the "search temporarily unavailable" case)
+ * [over-ridden for non netscape users]
+ */
+
+span.highlightbox {
+  font-family: Arial,Helvetica,sans-serif;
+  font-weight: bold;
+  padding: 0.2em;
+  background: #99cc66;
+}
+
+
+/* hide information apart from non-CSS User Agents */
+.hideme { 
+  display: none; 
+  }
+
+
+/* other highlighting styles */
+
+div#overview {
+  background: #eeeeee;
+  padding: 5px 15px;
+  }
+
+.screen pre, pre.highlight {
+  background: #cccccc;
+  white-space: pre;
+  padding:  0.5em;
+  overflow: auto;
+  border: thin solid black;
+  }
+
+div.highlighttext {
+  background: #cccccc;
+  padding:  0.5em;
+  margin: 2em;
+  border: thin solid black;
+  }
+
+dl.ciaodl dt {
+  background: #eeeeee;
+  border-color: #99CC67;
+  border-style: solid;
+  border-width: 0 0 0 1em;
+  padding-left: 0.5em;
+}
+
+/*
+ * page-specific style section 
+ *
+ */
+
+/* main index */
+
+dl#direction dt {
+  font-weight: bold;
+  font-size: 0.875em; /* 14px / 16px = 0.875em */	
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+dl.publications dt {
+  padding-top: 8px;
+}
+
+/* bug page */
+
+.bugtable tr td {
+  padding-left: 50px;
+}
+
+.toc, .bugsummary, dt.ahelp {
+  font-style: italic;
+  font-weight: bold;
+  color: #037D03;
+  }
+
+dt.ahelp {
+  padding-top: 10px;
+}
+
+.helplist {
+  padding-left: 1.0em;
+  margin-left: 0;
+}
+
+.bugitem {
+    padding-bottom: 10px;
+  }
+
+.bugsummary pre, .buganswer {
+    font-style: normal;	 
+  }
+
+.buganswer {
+    margin-left: 20px;
+    padding-left: 20px;
+  }
+
+
+/* registration */
+
+div.register {
+  padding: 0.5em 1.0em;
+  background: #99cc66;
+  }
+
+div.register a { 
+  color: #003300;
+  }
+
+/* workshop reg link */
+.reg {
+     text-align: center;
+     font-weight: bold;
+}
+
+div.threadlist li {
+  margin-bottom: 5px;
+}
+
+/* threads: "history" block */
+
+.history tr {
+  vertical-align: top;
+  }
+
+.history td {
+  padding-bottom: 10px;
+  }
+
+td.historydate {
+  padding-right: 10px;
+  text-align: right;
+  }
+
+/* ahelp file styles
+ *
+ */
+
+/* highlight the odd row to disambiguate it from the header
+ * (which is neither odd nor even)
+ */
+
+td.altrow {
+  background: #cccccc;
+  }
+
+h1.ahelp {
+  font-size: 1.4em;	
+  }
+
+
+.ahelpsyntax pre, .ahelpverbatim pre, .ahelpequation pre {
+  background: #cccccc;
+  white-space: pre;
+  padding:  0.5em;
+  border: thin solid black;
+  }
+
+.ahelpequation pre {
+  text-align: center;
+  }
+
+
+/* site map */
+
+#map_content_a, #map_content_b, #map_content_c {
+  float: left;
+  margin-right: 2%;
+  width: 30%;
+  }
+
+#map_content_c {
+  margin-right: 0
+  }
+
+#map_content div ul {
+  list-style-type: none;
+  padding-left: 1em;
+  }
+
+/*
+ * Experimental support for figures in threads.
+ */
+div.figure {
+    margin: 1em;
+}
+div.figure > div.thumbnail > div.screenmedia {
+    float: left;
+    padding-right: 1em;
+    margin-right: 0.5em;
+    margin-left: 1em;
+    background-color: #ffffff;
+}
+
+/* check if we want this for div.thumbnail as well as div.nothumbnail */
+img.supporting,
+div.figure > div.thumbnail > div.screenmedia > img ,
+div.figure > div.thumbnail > div.screenmedia > a > img ,
+div.figure > div.nothumbnail > div.screenmedia > img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/*
+ * Really would like to restrict the width of the 
+ * figures "caption" to that of the image, but
+ * not easily obvious without manually overiding the
+ * width with the image size for each image. As we now
+ * center the image within div.screenmedia it has
+ * become less of an issue, although current look is
+ * not ideal.
+ */
+div.figure > div > div.screenmedia > p.figures {
+    text-align: center;
+}
+
+div.figure > div.caption {
+    margin: 1em;
+    background-color: #eeeeee;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+    padding-top: 0.1em;     /* not sure looks good */
+    padding-bottom: 0.1em;
+}
+
+/* Only want the highlighted bar for the title block, which
+ * should be the first div.caption in the block
+ */
+div.figure div.caption:first-of-type {
+    border: solid #99CC67; /* was #cccccc; to match screen/highlight */
+    border-width: 0 0 0 1em;
+}
+
+span.figtitle {
+    font-family: Arial,Helvetica,sans-serif;
+    font-variant: small-caps;
+}
+
+/* Hide the print media version of the figure */
+/***
+div.figure > div.thumbnail > div.printmedia ,
+div.figure > div.nothumbnail > div.printmedia {
+    display: none;
+}
+***/
+
+/*  more general than the commented-out rule above */
+.printmedia {
+    display: none;
+}
+
+/* could the following be handled by clever use of selectors? */
+div.clearfloat {
+    clear: both;
+}
+
+/*
+ * Handle admonition blocks, based on the docbook stylesheet approach
+ * to the caution, important, note, tip and warning tags. We use
+ * the png files from the docbook distribution (1.78.1), which are
+ * assumed to be in /ciao/imgs/.
+ *
+ * Unlike other UI elements (e.g. code blocks), we do not place a
+ * solid border around the whole area, but just a thick border on the
+ * left edge.
+ */
+
+div.admonition {
+    margin: 2em 3em 2em 3em;
+    padding: 0.5em 1em 0.5em 1em;
+    border: solid green; /* #e0e0df; */
+    border-width: 0 0 0 1em;
+    background-color: #eeffee;
+}
+
+div.caution-inner {
+    /* background-image: url("/ciao/imgs/caution.png"); */
+}
+
+div.important-inner {
+    /* background-image: url("/ciao/imgs/important.png"); */
+}
+
+div.note-inner {
+    /* background-image: url("/ciao/imgs/note.png"); */
+}
+
+div.tip-inner {
+    /* background-image: url("/ciao/imgs/tip.png"); */
+}
+
+div.warning-inner {
+    /* background-image: url("/ciao/imgs/warning.png"); */
+}
+
+/*
+ * replacement for background-image use, so that the
+ * images are included in the hardcopy output
+ */
+div.caution-inner > img,
+div.important-inner > img,
+div.note-inner > img,
+div.tip-inner > img,
+div.warning-inner > img {
+  margin-left: -35px;
+  float: left;
+}
+
+/* for now assume the images are the same size of abut 25 by 25 pixels */
+div.caution-inner,
+div.important-inner,
+div.note-inner,
+div.tip-inner,
+div.warning-inner {
+    padding-left: 35px;
+    min-height: 35px;
+    background-position: left top;
+    background-repeat: no-repeat;
+}
+
+div.admonition div.title {
+    margin-bottom: 0.2em;
+    font-weight: bold;
+    color: #3f3f3f;
+}
+
+/* end of stylesheet */

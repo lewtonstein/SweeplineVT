@@ -1,0 +1,154 @@
+/*
+ * Copy of cxcstyle_hfonly.css but restricted to
+ * header/footer styling only
+ *
+ * Copy: 26 June 2013
+ */
+
+/* Header Stuff */
+
+#cxcheader a img { 
+  border: 0;
+ }
+
+#cxcheader {
+	background:#641a0a url(rcw108_800.jpg)
+                          repeat-x center left;   
+	margin: auto;
+                padding: .2em;
+ 	clear: both;
+	display: block;
+	overflow: hidden;
+	border-top-right-radius: 1em;
+	border-top-left-radius: 1em;
+	-moz-border-radius-topleft: 1em;
+	-moz-border-radius-topright: 1em;
+	-webkit-border-top-left-radius: 1em;
+	-webkit-border-top-right-radius: 1em;
+}
+
+#cxcheader img { 
+  color: #ffffff;
+  font-size: 2.5em;
+  font-style: italic;
+ }
+
+
+#cxcheaderleft {  
+	float: left;
+	clear: left;
+                width: 24%;
+               margin-left: .2em;
+}
+
+#cxcheaderright { 
+	float: right;
+	clear: right;
+               margin-right: .2em;
+ }
+
+#cxcheaderright a { 
+  color: #ffffff;
+  font-weight: bold;
+  display: block;
+  padding: .5em;
+  margin: .3em .1em;
+  border: .2em solid #ffffff
+}
+
+#cxcheaderleft a:hover { 
+               text-decoration: none;
+                background: transparent;
+ }
+
+#cxcheaderright ul { 
+  clear: right;
+  margin:0em;
+  padding:0em;
+ }
+
+#cxcheaderright li {  
+  list-style:none;
+  float:right;
+  padding: .6em .4em .0em .4em;
+}
+
+#cxcheaderright ul li a { 
+               text-decoration: none;
+                background-color: #41110a;
+ }
+
+
+#cxcheaderright ul li a:hover { 
+                background-color: #1f2569;
+}
+
+/* End Header Stuff */
+
+
+/* Footer Stuff */
+
+
+#cxcfooter {
+	background:#2a150f url(cxcfooterbackground.png) 
+                       repeat center left;
+	float: none;
+	padding: .5em;
+	clear: both;
+	overflow: hidden;
+                position: relative; 
+ 	border-bottom-right-radius: 1em;
+	border-bottom-left-radius: 1em;
+	-moz-border-radius-bottomleft: 1em;
+	-moz-border-radius-bottomright: 1em;
+	-webkit-border-bottom-left-radius: 1em;
+	-webkit-border-bottom-right-radius: 1em;
+}
+
+#cxcfooter img { 
+  color: #ffffff;
+  font-size: 1.5em;
+  font-style: italic;
+ }
+
+#cxcfooter ul li {
+	text-align:center;
+	width:20%;
+	float:left;
+	display: block;
+	padding: .5em 0 .5em 0;
+}
+
+#cxcfooter a {
+	color:white;
+	text-decoration:underline;
+}
+
+#cxcfooterleft {
+	max-width: 15%;
+	float: left;
+	clear: left;
+                margin-left: 0.6em; /*lewton*/
+}	
+
+#cxcfooterright {
+                max-width: 70%;
+	float: right;
+	clear: right;
+                margin-right: .2em;
+}
+
+
+#cxcfooterright p {
+	color: white;
+	font-size:90%;
+	padding: 1%;
+	clear: both;
+}
+
+
+/* hide stuff that will show up when printing */
+
+.printOnly { 
+ display: none;
+ }

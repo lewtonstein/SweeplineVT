@@ -1,0 +1,128 @@
+<html lang="en">
+<head>
+<title>Teng Liu</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="description" content="Teng Liu home page developing">
+<link rel="stylesheet" title="Default stylesheet for CIAO-related pages" href="style/ciao.css">
+<link rel="stylesheet" title="Default stylesheet for CIAO-related pages" media="print" href="style/ciao.print.css">
+<link rel="icon" href="style/patrick.ico">
+<style type="text/css">html { display: none; }</style>
+<script type="text/javascript">
+if (self == top) {
+  document.documentElement.style.display = 'block';
+} else {
+  top.location = self.location;
+} </script>
+</head>
+<body> 
+ 
+<div id="cxcheader">
+	
+  <div id="cxcheaderleft">
+       <a href="#ThankCXC"><img style="min-width: 100%" id="titlepicture" src="Figures/EXSdetect.png" alt="aa"></a>
+  </div>
+  <div id="cxcheaderright">
+	  <ul>
+   	      <li><a href="EXSdetect_Introduction.html">EXSdetect</a></li>   
+	      <li><a href="SweepLine_Introduction.html">SweepLine</a></li>          
+	      <li><a href="EXSdetect_Download.html">Download</a></li>
+	  </ul>              
+
+	  <ul>
+           <li><a href="../index.html">SWXCS</a></li>
+	  </ul>        
+
+  </div>
+</div>
+ 
+<div class="topbarcontainer withnavbar">
+	<div class="topbar"> <p></p> </div>
+</div>
+
+<div id="main"> <!--main-->
+
+<div id="content"> <!--content-->
+<div class="wrap"> <!--wrap-->
+<!--ENDHEAD-->
+<!--BEGINCONTENT-->
+
+<table class="ahelpheader" width="100%"><tbody><tr>
+<td align="center" width="40%"><h1 class="ahelp">More than program</h1></td>
+</tr></tbody></table>
+<div id="overview">
+The algorithm works well in a statistical manner.
+It is impossible to be perfect in all cases.
+In rare cases when you are not satisfied with the EXSdetect result -- as much as to say, the parameters are not adequately optimized -- you can do some handcraft, replacing the algorithm with your human brain.
+</div>
+<hr size="5" noshade="">
+<h2><a name="synopsis">Cut connections manually</a></h2>
+<img alt="logo" style="float:center" src="Figures/082057+315343_cutlines.png"></a>
+<img alt="logo" style="float:center" src="Figures/105229+104405_cutlines.png"></a>
+<p>
+There are some parameter which allow you to adjust the functioning in order to separate nearby, blended sources.
+However, the most direct way for a user who does not intend to study the algorithm details is to separate them manually.
+We provide a simple method to carve the source regions as you like. Open the image and load the source region file given by EXSdetect, draw a line across the source region, as shown in the two examples above.
+It's like cutting all the connections between nearby filled pixels crossed by this line with a knife. 
+Save the line in a region file, and repeat EXSdetect with this file input using the option --CutLines. Then the source will be split into parts following the line your drew.
+</p>
+
+<hr size="5" noshade="">
+<h2><a name="synopsis">Background measurement</a></h2>
+<p>It is required by the default background measurement algorithm of EXSdetect that a fraction (the faint fraction) of the image is source-free, thus can be regarded as pure-background region. The background measurement relies on a sufficient number of filled pixels which contain no source signal. This is always fulfilled for typical X-ray iamges, except in the case that the whole field is dominated by source signals, such as very shallow fields with very bright sources, or extended sources covering the entire FOV. For such fields please set manually a background flux or provide a manually selected region for EXSdetect to calculate the average background flux, using the <a href="EXSdetect_Input.html#backgroundoption">-b option</a>.</p>
+<p>Even if the field is not source dominated, you can still improve the background measurement by selecting the background sampleing region. The user specified background sampling region should follow <a href="EXSdetect_Input.html#backgroundregiondefinition">these rules</a> and imported into EXSdetect using the --BkgRegion option (not the -b option). </p>
+
+<img alt="logo" style="float:center" src="Figures/onesimu_BkgRegion.png"></a>
+
+<p>For example, in the case above, the circle enclosing the cluster is saved into a ds9 region file and loaded into EXSdetect with --BkgRegion. While runing EXSdetect again, the circle region is excluded so that the contamination from the wing of the cluster is reduced. </p>
+
+<img alt="logo" style="float:center" src="Figures/onesimu_BkgRegion_B.png"></a>
+
+<p>We assume the background is constant across the field. This is reasonable for images with small field-of-view (FOV), such as Swift -XRT images. However, it may not apply to images with strong background variations. ...</p>
+<!--ENDCONTENT-->
+<!--BEGINTAIL-->
+</div> <!--wrap-->
+</div> <!--content-->
+
+<div id="navbar">
+	<div class="wrap">
+	<dl>
+	<dt><span class="heading">EXSdetect</span></dt>
+		<dd><a href="EXSdetect_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+		<dd><a href="EXSdetect_Input.html">Input & Setting</a></dd>
+		<dd><a href="EXSdetect_Output.html">Output</a></dd>
+		<dd><a href="EXSdetect_Tricks.html">Tips & Tricks</a></dd>
+	<dt><span class="heading">Sweep Line</span></dt>
+		<dd><a href="SweepLine_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+		<dd><a href="SweepLine_Basic.html">Basic Function</a></dd>
+		<dd><a href="SweepLine_More.html">Extensions</a></dd>
+	<dt><span class="heading">Friend Of Friend</span></dt>
+		<dd><a href="FOF_Introduction.html">Introduction</a></dd>
+		<dd><a href="EXSdetect_Download.html">Download</a></dd>
+	<dt><span class="heading">2D random</span></dt>
+		<dd><a href="2Drandom.html">Introduction</a></dd>
+	<dt><span class="heading">Links</span></dt>
+		<dd><a href="https://www.python.org/">Python</a></dd>
+		<dd><a href="http://www.numpy.org/">numpy</a></dd>
+		<dd><a href="http://www.scipy.org/">scipy</a></dd>
+		<dd><a href="http://www.stsci.edu/institute/software_hardware/pyfits">pyfits</a></dd>
+		<dd><a href="http://ds9.si.edu/site/Home.html">SAO ds9</a></dd>
+	</dl>
+	</div>
+</div>
+
+</div> <!--main-->
+ 
+<br clear="all"><div class="bottombar"><div class="lastmodbar">Last modified: December 2013</div></div>
+<div id="cxcfooter">
+	<div id="cxcfooterleft"> <img src="style/patrick_120x120.jpeg" alt="logo" style="float:center"> </div>
+	<div id="cxcfooterright">
+	<a name="ThankCXC"></a>
+	<p> Ha ha~, you know where the web page style is stolen from, if you are a X-ray astronomer. I like the <a href="http://cxc.harvard.edu/ciao/">"CIAO"</a> website a lot. Grazie, CIAO. I acknowledge the Chandra X-ray Center (CXC) for their excellent work.<br>
+	</p>
+	<a style="float:right;color:white;font-size:90%" href="mailto:lewtonstein@gmail.com">Teng Liu  Email: lewtonstein@gmail.com</a>
+	</div>
+</div>
+ 
+</body></html>
