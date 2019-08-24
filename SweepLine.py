@@ -24,7 +24,8 @@
 #Lewton Jun 1st 2016
 ################################################################################
 import numpy as np
-import pyfits as pf
+try: import pyfits as fits
+except: from astropy.io import fits
 import heapq
 import itertools
 import time,sys,warnings,os,getopt
@@ -77,7 +78,7 @@ class HalfEdge(object):
 				else:
 					insqrt = (u[1]*v[1]-u[1]*y0-v[1]*y0+y0*y0)*(u[0]*u[0]-2*u[0]*v[0]+u[1]*u[1]-2*u[1]*v[1]+v[0]*v[0]+v[1]*v[1])
 					cx = (self.direct*np.sqrt(insqrt)-u[0]*v[1]+u[0]*y0+u[1]*v[0]-v[0]*y0)/(u[1]-v[1])
-					if insqrt<0: print 'Error sqrt<0 %g %.8f %.8f - %.8f %.8f - %.8f %.8f  %.8f' % (insqrt,u[0],u[1],v[0],v[1],px,y0,cx)
+					if insqrt<0: print('Error sqrt<0 %g %.8f %.8f - %.8f %.8f - %.8f %.8f  %.8f' % (insqrt,u[0],u[1],v[0],v[1],px,y0,cx))
 				self.hist = [y0,cx]
 			return cx>px
 	def Intersect(self,Next):
@@ -108,36 +109,36 @@ class HalfEdge(object):
 		elif yb<=-0.5 and ys<=-0.5 or yb>=Voronoi.ImgSizeY-0.5 and ys>=Voronoi.ImgSizeY-0.5: self.summit = None
 		#elif round(xs,Voronoi.SLVround)==round(xb,Voronoi.SLVround) and round(ys,Voronoi.SLVround)==round(yb,Voronoi.SLVround): self.summit = None #seems useless
 		else:
-			if echo: print xb,yb,xs,ys
-			if not -0.5<=xb<=Voronoi.ImgSizeX-0.5: print 'Unexpected base x',xb #I don't know why x is so good
+			if echo: print(xb,yb,xs,ys)
+			if not -0.5<=xb<=Voronoi.ImgSizeX-0.5: print('Unexpected base x',xb) #I don't know why x is so good
 			if yb<-0.5 and ys>Voronoi.ImgSizeY-0.5: #crossing the whole image
-				if echo: print self.base,xs,ys,'->',
+				if echo: print(self.base,xs,ys,'->', end=' ')
 				self.base = xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
 				xs,ys =  xb+(Voronoi.ImgSizeY-0.5-yb)*(xs-xb)/(ys-yb), Voronoi.ImgSizeY-0.5
 				xb,yb = self.base
-				if echo: print self.base,xs,ys
+				if echo: print(self.base,xs,ys)
 			elif ys<-0.5 and yb>Voronoi.ImgSizeY-0.5: #backward crossing the whole image
 				xs,ys =  xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
 				self.base = xb+(Voronoi.ImgSizeY-0.5-yb)*(xs-xb)/(ys-yb), Voronoi.ImgSizeY-0.5
 				xb,yb = self.base
 			elif ys>-0.5 and yb<-0.5: #upward crossing y==0 (bottom)
-				if echo: print 'upward'
+				if echo: print('upward')
 				self.base = xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
 				xb,yb = self.base
 			elif yb<Voronoi.ImgSizeY-0.5 and ys>Voronoi.ImgSizeY-0.5: #crossing y==max
-				if echo: print xb,yb,xs,ys,'T->'
+				if echo: print(xb,yb,xs,ys,'T->')
 				xs,ys =  xb+(Voronoi.ImgSizeY-0.5-yb)*(xs-xb)/(ys-yb), Voronoi.ImgSizeY-0.5
-				if echo: print xb,yb,xs,ys
+				if echo: print(xb,yb,xs,ys)
 			elif ys<-0.5 and yb>-0.5: #back crossing y==0
 				xs,ys =  xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
-				if echo: print 'back crossing'
+				if echo: print('back crossing')
 			elif yb>Voronoi.ImgSizeY-0.5 and ys<Voronoi.ImgSizeY-0.5: #back crossing y==max
-				if echo: print xb,yb,xs,ys,'T<-'
+				if echo: print(xb,yb,xs,ys,'T<-')
 				self.base = xb+(Voronoi.ImgSizeY-0.5-yb)*(xs-xb)/(ys-yb), Voronoi.ImgSizeY-0.5
 				xb,yb = self.base
-				if echo: print xb,yb,xs,ys
+				if echo: print(xb,yb,xs,ys)
 			else:
-				if echo: print 'other1'
+				if echo: print('other1')
 			#treat x y in two steps, to cover such cases that crossing two image edges
 			if xs<-0.5 and xb>-0.5:
 				xs,ys =  -0.5, yb-(xb+0.5)*(ys-yb)/(xs-xb)
@@ -146,8 +147,8 @@ class HalfEdge(object):
 				xs,ys =  Voronoi.ImgSizeX-0.5, yb+(Voronoi.ImgSizeX-0.5-xb)*(ys-yb)/(xs-xb)
 				#print xb,yb,xs,ys
 			else:
-				if echo: print 'other'
-				if not (-0.5<=yb<=Voronoi.ImgSizeY-0.5 and -0.5<=xb<=Voronoi.ImgSizeX-0.5): print 'What',xb,yb,xs,ys
+				if echo: print('other')
+				if not (-0.5<=yb<=Voronoi.ImgSizeY-0.5 and -0.5<=xb<=Voronoi.ImgSizeX-0.5): print('What',xb,yb,xs,ys)
 			self.summit = xs,ys
 	#END_OF_def complete(self,xs,ys,echo=False):
 	def line(self,x,y):
@@ -191,7 +192,7 @@ class SweepTable(dict):
 		for n in np.arange(1,ymin.size):
 			x = Px[ymin[n]]
 			y = Py[ymin[n]]
-			count = self.counter.next()
+			count = next(self.counter)
 			self[count] = HalfEdge((x0,y0),(x,y),0,((x0+x)/2.,-0.5))
 			self.KL.append(count)
 			x0,y0 = x,y
@@ -215,7 +216,7 @@ class SweepTable(dict):
 		while True:
 			if Nlow+1 == Nhigh:
 				break
-			Nmid = (Nlow+Nhigh)/2
+			Nmid = (Nlow+Nhigh)//2
 			#print 'mid:',Nmid
 			if self[self.KL[Nmid]].isRightOf(p[0],p[1]):
 				Nhigh = Nmid
@@ -228,11 +229,11 @@ class SweepTable(dict):
 		#p: y,x,...
 		x0,y0 = self[self.KL[n]].p1
 		base = x,(y**2-y0**2-(x-x0)**2)/2./(y-y0)
-		count = self.counter.next()
+		count = next(self.counter)
 		self.KL.insert(n+1,count)
 		self[count] = HalfEdge((x0,y0),(x,y),-1,base,count+1) #new minus half edge
 		#if Voronoi.debug: print 'new: ',count,self[count]
-		count = self.counter.next()
+		count = next(self.counter)
 		self.KL.insert(n+2,count)
 		self[count] = HalfEdge((x,y),(x0,y0),1,base,count-1)  #new plus half edge
 		#if Voronoi.debug: print 'new: ',count,self[count]
@@ -267,7 +268,7 @@ class SweepTable(dict):
 		if y==y0: x0,y0 = self[r].p1
 		xb,yb = x,(y**2-y0**2-(x-x0)**2)/2./(y-y0)
 		#if Voronoi.debug: print 'shrink:',self[l],self[r],x,y,(xb,yb)
-		count = self.counter.next()
+		count = next(self.counter)
 		self[count] = HalfEdge(self[l].p0,self[r].p1,direct,(xb,yb))
 		self.KL[n] = count
 		self.KL.pop(n+1)
@@ -296,9 +297,9 @@ class SweepTable(dict):
 			self[self.KL[-2]].complete(Voronoi.ImgSizeX-0.5,yb)
 			todo.append([self.KL[-2],self[self.KL[-2]].copy()])
 			if self.KL[-2] in self.Q:
-				print 'Please check'
-				print self[self.KL[-2]]
-				print self[self.KL[-1]]
+				print('Please check')
+				print(self[self.KL[-2]])
+				print(self[self.KL[-1]])
 				exit()
 			#maybe the VertexEvt to delete is just the p which has just been deleted from Q as the minimum.
 			if self.p is not None and len(self.p)==4 and self.KL[-3]==self.p[2]: self.p = None
@@ -354,7 +355,7 @@ class EventQueue(dict):
 		#END_OF_def delMin(self):
 	def insert(self,p,l,r,count=None):
 		if l in self: sys.exit(str(l)+'already in')
-		if count is None: count=self.counter.next()
+		if count is None: count=next(self.counter)
 		evt = [p[1],p[0],count,l,r]
 		self[l] = evt
 		heapq.heappush(self.VerEvt,evt)
@@ -372,7 +373,7 @@ class Voronoi(object):
 	def __init__(self,image=None,events=None,**kwargs):
 		#StartTime=time.time()
 		self.FileName = kwargs.pop('FileName','FileName')
-		print color('Voronoi Construction: '+self.FileName,34,1)
+		print(color('Voronoi Construction: '+self.FileName,34,1))
 		ToCalArea = kwargs.pop('calarea',False)
 		ToCalPVD = kwargs.pop('calpvd',False)
 		ToCalAdj = kwargs.pop('caladj',False)
@@ -395,7 +396,7 @@ class Voronoi(object):
 			if ToCalPVD: sys.exit('--calpvd not supported in case of events (as opposed to image) input')
 			if ToCalDst: sys.exit('--caldst not supported in case of events (as opposed to image) input')
 			border=kwargs.pop('border',{})
-			if border: print 'set image size: %s-%s %s-%s' % (border.get('xlow','**'),border.get('xhigh','**'),border.get('ylow','**'),border.get('yhigh','**'))
+			if border: print('set image size: %s-%s %s-%s' % (border.get('xlow','**'),border.get('xhigh','**'),border.get('ylow','**'),border.get('yhigh','**')))
 
 			xlow = border.pop('xlow',-0.5)
 			ylow = border.pop('ylow',-0.5)
@@ -408,40 +409,39 @@ class Voronoi(object):
 			Voronoi.ImgSizeX = int(xhigh+0.5)
 			Voronoi.ImgSizeY = int(yhigh+0.5)
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>Voronoi.ImgSizeX-0.5 or np.max(events[:,1])>Voronoi.ImgSizeY-0.5:
-				print color("ERROR: points out of (-0.5~%g, -0.5~%g)" %(xlow,Voronoi.ImgSizeX-0.5,ylow,Voronoi.ImgSizeY-0.5),31,1)
+				print(color("ERROR: points out of (-0.5~%g, -0.5~%g)" %(xlow,Voronoi.ImgSizeX-0.5,ylow,Voronoi.ImgSizeY-0.5),31,1))
 				exit()
-			if Voronoi.debug: print "OffSet:",self.OffSetX,self.OffSetY
-			if Voronoi.debug: print "ImgSize:",Voronoi.ImgSizeX,Voronoi.ImgSizeY 
+			if Voronoi.debug: print("OffSet:",self.OffSetX,self.OffSetY)
+			if Voronoi.debug: print("ImgSize:",Voronoi.ImgSizeX,Voronoi.ImgSizeY) 
 
 			MakeIntImage=kwargs.pop('MakeIntImage',False)
 			if MakeIntImage:
 				if np.min(events[:,:2])<0: sys.exit('ERROR: Negative position')
 				if Voronoi.ImgSizeX>4096 or Voronoi.ImgSizeY>4096:
-					print "The image size exceeds 4096. Do you really want to make such a large image? (y/n)"
-					readyn=raw_input()
+					print("The image size exceeds 4096. Do you really want to make such a large image? (y/n)")
+					readyn=input()
 					if readyn!='y': exit()
 				if Voronoi.ImgSizeX<5 or Voronoi.ImgSizeY<5:
-					print "The image size < 5. Do you really want to make such a large image? (y/n)"
-					readyn=raw_input()
+					print("The image size < 5. Do you really want to make such a large image? (y/n)")
+					readyn=input()
 					if readyn!='y': exit()
 				pmap = np.zeros((int(Voronoi.ImgSizeX),int(Voronoi.ImgSizeY)),dtype='float64')
-                                if Voronoi.debug: print "init pmap",pmap.shape
-				reg=file(self.FileName+'_points.reg','w')
-				for x,y in events[:,:2]:
-					pmap[int(x+0.5),int(y+0.5)] += 1
-					print >>reg,"image;circle(%.2f,%.2f,0.3) # color=red;line(%.2f,%.2f,%d,%d) # color=red" % (y+1,x+1, y+1,x+1, int(y+0.5)+1,int(x+0.5)+1)
-				if Hdr is None: Hdr=pf.Header()
+				if Voronoi.debug: print("init pmap",pmap.shape)
+				with open(self.FileName+'_points.reg','w') as freg:
+					for x,y in events[:,:2]:
+						pmap[int(x+0.5),int(y+0.5)] += 1
+						print("image;circle(%.2f,%.2f,0.3) # color=red;line(%.2f,%.2f,%d,%d) # color=red" % (y+1,x+1, y+1,x+1, int(y+0.5)+1,int(x+0.5)+1), file=freg)
+				if Hdr is None: Hdr=fits.Header()
 				Hdr.update({'OffSetX':self.OffSetX})
 				Hdr.update({'OffSetY':self.OffSetY})
-				pf. writeto(self.FileName+'_image.fits',pmap,Hdr,clobber=True)
-				print '>> '+self.FileName+'_image.fits'
-				print '>> '+self.FileName+'_points.reg'
-				reg.close()
+				fits.writeto(self.FileName+'_image.fits',pmap,Hdr,overwrite=True)
+				print('>> '+self.FileName+'_image.fits')
+				print('>> '+self.FileName+'_points.reg')
 			Resolution=kwargs.pop('Resolution',3)
 			tmp = {(round(events[n,0],Resolution),round(events[n,1],Resolution)):events[n] for n in range(events.shape[0])}
 			if len(tmp)!=events.shape[0]:
-				print color("Warning: %d duplicated points deleted" % (events.shape[0]-len(tmp)),31,1)
-				events = np.array(tmp.values())
+				print(color("Warning: %d duplicated points deleted" % (events.shape[0]-len(tmp)),31,1))
+				events = np.array(list(tmp.values()))
 			tmp = np.array(sorted(events,key=lambda x:(x[1],x[0]))).round(Voronoi.SLVround)
 			self.Px,self.Py = tmp[:,0],tmp[:,1]
 			if events.shape[1] == 3: value = tmp[:,2] #to be continued
@@ -468,17 +468,17 @@ class Voronoi(object):
 		if __name__ == '__main__':
 			if self.Mode=='image' or MakeIntImage:
 				d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
-				file(self.FileName+'.reg','w').write('image\n')
+				open(self.FileName+'.reg','w').write('image\n')
 				np.savetxt(self.FileName+'.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
-				print '>> '+self.FileName+'.reg'
+				print('>> '+self.FileName+'.reg')
 				if kwargs.pop('Delaunay',False):
 					d = np.array([[e.p0[1],e.p0[0],e.p1[1],e.p1[0],e.base[1],e.base[0],e.summit[1],e.summit[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
-					file(self.FileName+'_Delaunay.reg','w').write('image\n')
+					open(self.FileName+'_Delaunay.reg','w').write('image\n')
 					np.savetxt(self.FileName+'_Delaunay.reg',d,fmt="line(%g,%g,%g,%g) # tag={%.3f,%.3f,%.3f,%.3f}")
-					print '>> '+self.FileName+'_Delaunay.reg'
+					print('>> '+self.FileName+'_Delaunay.reg')
 			if self.Mode=='event':
 				np.savetxt(self.FileName+'_Voronoi.dat',np.array([[e.base[0],e.base[1],e.summit[0],e.summit[1],e.p0[0],e.p0[1],e.p1[0],e.p1[1]] for e in self.Edges.values() if e.summit is not None])-np.array([self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY]),fmt="%f")
-				print '>> '+self.FileName+'_Voronoi.dat'
+				print('>> '+self.FileName+'_Voronoi.dat')
 			if ToCalDst: #image mode, not events mode
 				assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
 				assert np.all(self.pmap>0) #self.CalPVD done
@@ -487,23 +487,23 @@ class Voronoi(object):
 				dmap[:,:] = dmap[self.Px,self.Py][self.pmap[self.pmap>0]-1].reshape(Voronoi.ImgSizeX,Voronoi.ImgSizeY)
 				#vmap is not uniquely defined, thus by now the uncertainty is transfered into dmap
 
-				print '>> '+self.FileName+'_dst.fits'
-				pf.writeto(self.FileName+'_dst.fits',dmap,Hdr,clobber=True)
+				print('>> '+self.FileName+'_dst.fits')
+				fits.writeto(self.FileName+'_dst.fits',dmap,Hdr,overwrite=True)
 				return
 			if ToCalPVD:
-				print '>> '+self.FileName+'_pvd.fits'
-				pf.writeto(self.FileName+'_pvd.fits',self.pmap,Hdr,clobber=True)
+				print('>> '+self.FileName+'_pvd.fits')
+				fits.writeto(self.FileName+'_pvd.fits',self.pmap,Hdr,overwrite=True)
 			if ToCalArea:
 				if type(self.Amap) is dict:
-					print '>> '+self.FileName+'_area.dat'
+					print('>> '+self.FileName+'_area.dat')
 					#np.savetxt(self.FileName+'_area.dat',self.Amap.values())
-					np.savetxt(self.FileName+'_area.dat',np.hstack((np.array(self.Amap.values()).reshape(len(self.Amap),1),np.array(self.Amap.keys())-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
+					np.savetxt(self.FileName+'_area.dat',np.hstack((np.array(list(self.Amap.values())).reshape(len(self.Amap),1),np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
 				else:
-					print '>> '+self.FileName+'_area.fits'
-					pf.writeto(self.FileName+'_area.fits',self.Amap,Hdr,clobber=True)
+					print('>> '+self.FileName+'_area.fits')
+					fits.writeto(self.FileName+'_area.fits',self.Amap,Hdr,overwrite=True)
 			if ToCum2D:
-					print '>> '+self.FileName+'_cum2d.dat'
-					np.savetxt(self.FileName+'_cum2d.dat',np.hstack((np.array(self.CumWmap.values()).reshape(len(self.CumWmap),1),np.array(self.CumWmap.keys())-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
+					print('>> '+self.FileName+'_cum2d.dat')
+					np.savetxt(self.FileName+'_cum2d.dat',np.hstack((np.array(list(self.CumWmap.values())).reshape(len(self.CumWmap),1),np.array(list(self.CumWmap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
 	#END_OF_init
 
 	def Construct(self,**kwargs):
@@ -537,7 +537,7 @@ class Voronoi(object):
 
 			elif len(T.p)==4: #Vertex Event
 				if T.p[2] not in T or T.p[3] not in T:
-					print 'Useless VertexEvent:',T.p
+					print('Useless VertexEvent:',T.p)
 				else:
 					#if Voronoi.debug: print 'VertexEvent:',T.p[0],T.p[1]
 					l,r = T.shrink()
@@ -558,10 +558,10 @@ class Voronoi(object):
 					e.summit = None
 					continue
 		for k in self.Edges.keys():
-			if self.Edges[k].summit is not None and (self.Edges[k].base[0]<-0.5 or self.Edges[k].base[0]>self.ImgSizeX-0.5 or self.Edges[k].base[1]<-0.5 or self.Edges[k].base[1]>self.ImgSizeY-0.5 or self.Edges[k].summit[0]<-0.5 or self.Edges[k].summit[0]>self.ImgSizeX-0.5 or self.Edges[k].summit[1]<-0.5 or self.Edges[k].summit[1]>self.ImgSizeY-0.5): print "ERROR",self.Edges[k]
+			if self.Edges[k].summit is not None and (self.Edges[k].base[0]<-0.5 or self.Edges[k].base[0]>self.ImgSizeX-0.5 or self.Edges[k].base[1]<-0.5 or self.Edges[k].base[1]>self.ImgSizeY-0.5 or self.Edges[k].summit[0]<-0.5 or self.Edges[k].summit[0]>self.ImgSizeX-0.5 or self.Edges[k].summit[1]<-0.5 or self.Edges[k].summit[1]>self.ImgSizeY-0.5): print("ERROR",self.Edges[k])
 		#???
 
-		for l in T.keys():
+		for l in list(T.keys()):
 			e = T[l]
 			#e.complete((e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[1]-e.p0[1])*(Voronoi.ImgSizeY-0.5))/2/(e.p0[0]-e.p1[0]), Voronoi.ImgSizeY-0.5)
 			if e.direct==0: e.complete(e.base[0],Voronoi.ImgSizeY-0.5)
@@ -584,14 +584,14 @@ class Voronoi(object):
 						e2.summit = None
 						assert e.p0==e2.p1 and e.p1==e2.p0
 		#Delete nouse edges
-		for k in self.Edges.keys():
+		for k in list(self.Edges.keys()):
 			if self.Edges[k].summit is None: self.Edges.pop(k)
-			elif self.Edges[k].base[0]<-0.5 or self.Edges[k].base[0]>self.ImgSizeX-0.5 or self.Edges[k].base[1]<-0.5 or self.Edges[k].base[1]>self.ImgSizeY-0.5 or self.Edges[k].summit[0]<-0.5 or self.Edges[k].summit[0]>self.ImgSizeX-0.5 or self.Edges[k].summit[1]<-0.5 or self.Edges[k].summit[1]>self.ImgSizeY-0.5: print "ERROR",self.Edges[k]
-		if Voronoi.debug: print 'time:',time.time()-StartTime
+			elif self.Edges[k].base[0]<-0.5 or self.Edges[k].base[0]>self.ImgSizeX-0.5 or self.Edges[k].base[1]<-0.5 or self.Edges[k].base[1]>self.ImgSizeY-0.5 or self.Edges[k].summit[0]<-0.5 or self.Edges[k].summit[0]>self.ImgSizeX-0.5 or self.Edges[k].summit[1]<-0.5 or self.Edges[k].summit[1]>self.ImgSizeY-0.5: print("ERROR",self.Edges[k])
+		if Voronoi.debug: print('time:',time.time()-StartTime)
 	#END_OF_Construct()
 
 	def drawLine(self,e):
-		if np.isinf(e.summit[0]): print e
+		if np.isinf(e.summit[0]): print(e)
 		if e.direct == 0:
 			if e.base[0]!=e.summit[0]: sys.exit('ERROR')
 			if e.base[1]<e.summit[1]:
@@ -624,7 +624,7 @@ class Voronoi(object):
 		else:
 			x1,y1 = e.summit
 			x2,y2 = e.base
-		if x2==x1: print 'Warning: Zero-Length Edges not eliminated clearly',e
+		if x2==x1: print('Warning: Zero-Length Edges not eliminated clearly',e)
 		a = 1.*(y2-y1)/(x2-x1)
 		b = y1-a*x1
 		x1 = round(x1,Voronoi.SLVround)
@@ -660,7 +660,7 @@ class Voronoi(object):
 		RemoveEdgePoint = kwargs.pop('RemoveEdgePoint',False)
 		#for e in self.Edges.values():
 		#	assert e.summit is not None
-		if Voronoi.debug: print color("\nCalculating Voronoi Cell Areas",32,0)
+		if Voronoi.debug: print(color("\nCalculating Voronoi Cell Areas",32,0))
 		if type(self.pmap) is dict:
 			self.Amap={(self.Px[n],self.Py[n]):np.float64(0) for n in np.arange(self.Px.size)}
 			P0 = np.array([e.p0 for e in self.Edges.values()])
@@ -766,7 +766,7 @@ class Voronoi(object):
 			EE[n] = [Voronoi.ImgSizeX,Voronoi.ImgSizeY]
 		################################################################################
 		#Edges touching (crossing) one image edge
-		if Voronoi.debug: EPfile = file('EdgePoint.reg','w')
+		if Voronoi.debug: EPfile = open('EdgePoint.reg','w')
 		for n in np.where(EE[:,0]==-0.5)[0]:	#left EpL
 			N = self.pmap[tuple(P0[n-P0.shape[0]])]
 			EdgePoint.append(N)
@@ -789,11 +789,11 @@ class Voronoi(object):
 			N = self.pmap[tuple(P0[n-P0.shape[0]])]
 			EdgePoint.append(N)
 			EpR[N] = EpR.get(N,[])+[EE[n,1]]
-			if Voronoi.debug: print >>EPfile,'line(%.2f,%.2f,%.2f,%.2f)' %(self.Py[N-1]+1,self.Px[N-1]+1,EE[n,1]+1,EE[n,0]+1)
+			if Voronoi.debug: print('line(%.2f,%.2f,%.2f,%.2f)' %(self.Py[N-1]+1,self.Px[N-1]+1,EE[n,1]+1,EE[n,0]+1), file=EPfile)
 			N = self.pmap[tuple(P1[n-P0.shape[0]])]
 			EdgePoint.append(N)
 			EpR[N] = EpR.get(N,[])+[EE[n,1]]
-			if Voronoi.debug: print >>EPfile,'line(%.2f,%.2f,%.2f,%.2f)' %(self.Py[N-1]+1,self.Px[N-1]+1,EE[n,1]+1,EE[n,0]+1)
+			if Voronoi.debug: print('line(%.2f,%.2f,%.2f,%.2f)' %(self.Py[N-1]+1,self.Px[N-1]+1,EE[n,1]+1,EE[n,0]+1), file=EPfile)
 			VyR[0] = min(VyR[0],EE[n,1])
 			VyR[1] = max(VyR[1],EE[n,1])
 		for n in np.where(EE[:,1]==Voronoi.ImgSizeY-0.5)[0]:	#top EpT
@@ -808,9 +808,9 @@ class Voronoi(object):
 		self.EdgePoint = np.unique(EdgePoint)
 		if Voronoi.debug:
 			for N in self.EdgePoint:
-				print >>EPfile,"circle(%d,%d,1) # color=red" % (self.Py[N-1]+1-self.OffSetY,self.Px[N-1]+1-self.OffSetX)
+				print("circle(%d,%d,1) # color=red" % (self.Py[N-1]+1-self.OffSetY,self.Px[N-1]+1-self.OffSetX), file=EPfile)
 			EPfile.close()
-			print ">> "+EPfile.name
+			print(">> "+EPfile.name)
 		########################################################################
 		# For such case where there is no crossing point in one edge of the image
 		if len(EpL)==0:
@@ -846,7 +846,7 @@ class Voronoi(object):
 			EpL[N].append(Voronoi.ImgSizeY-0.5)
 			EpR[N].append(Voronoi.ImgSizeY-0.5)
 		########################################################################
-		for N in EpL.keys():
+		for N in EpL:
 			x,y = self.Px[N-1],self.Py[N-1]
 			if len(EpL[N])==1:
 				if EpL[N][0]==VyL[0] and N in EpB.keys():
@@ -860,9 +860,9 @@ class Voronoi(object):
 					EpL[N].append(Voronoi.ImgSizeY-0.5)
 					EpT[N].append(-0.5)
 				else:
-					print 'EpL',x,y,EpL[N]
+					print('EpL',x,y,EpL[N])
 					raise RuntimeError('ERROR: Edge point Left')
-		for N in EpR.keys():
+		for N in EpR:
 			x,y = self.Px[N-1],self.Py[N-1]
 			if len(EpR[N])==1:
 				if EpR[N][0]==VyR[0] and N in EpB.keys():
@@ -874,15 +874,15 @@ class Voronoi(object):
 					EpR[N].append(Voronoi.ImgSizeY-0.5)
 					EpT[N].append(Voronoi.ImgSizeX-0.5)
 				else:
-					print 'EpR',x,y,EpR[N]
+					print('EpR',x,y,EpR[N])
 					n= np.where((P0[:,0]==x)&(P0[:,1]==y))
 					if len(n)>0:
 						n=n[0][0]
-						print 'P0',P0[n,0],EE[n],EE[n-P0.shape[0]]
+						print('P0',P0[n,0],EE[n],EE[n-P0.shape[0]])
 					n= np.where((P1[:,0]==x)&(P1[:,1]==y))
 					if len(n)>0:
 						n=n[0][0]
-						print 'P1',P1[n,0],EE[n],EE[n-P1.shape[0]]
+						print('P1',P1[n,0],EE[n],EE[n-P1.shape[0]])
 					raise RuntimeError('ERROR: Edge point Right')
 		########################################################################
 		#Save edge triangles in E0e,E1e,Pe,Ee. Add their areas to self.Amap
@@ -891,7 +891,7 @@ class Voronoi(object):
 		Pe=[] #The EdgePoint of each EdgeTriangle.
 		#The number can be larger than that of self.EdgePoint, because one EdgePoint can be shared by more than one triangles.
 		Ee=[] #area of each edge triangle
-		for N in EpL.keys():
+		for N in EpL:
 			x,y = self.Px[N-1],self.Py[N-1]
 			#if len(EpL[N])!=2: print y+1,x+1,EpL[N]
 			assert len(EpL[N])==2
@@ -901,7 +901,7 @@ class Voronoi(object):
 			Pe.append([x,y])
 			Ee.append((x+0.5)*abs(EpL[N][0]-EpL[N][1])/2.)
 			#print "circle(%.1f,%.1f,1.3) # text={%.3f}" %(y+1,x+1,(x+0.5)*abs(EpL[N][0]-EpL[N][1])/2.)
-		for N in EpB.keys():
+		for N in EpB:
 			x,y = self.Px[N-1],self.Py[N-1]
 			#if len(EpB[N])!=2: print y+1,x+1,EpB[N]
 			assert len(EpB[N])==2
@@ -911,7 +911,7 @@ class Voronoi(object):
 			Pe.append([x,y])
 			Ee.append((y+0.5)*abs(EpB[N][0]-EpB[N][1])/2.)
 			#print "circle(%.1f,%.1f,1.3) # text={%.3f}" %(y+1,x+1,(y+0.5)*abs(EpB[N][0]-EpB[N][1])/2.)
-		for N in EpR.keys():
+		for N in EpR:
 			x,y = self.Px[N-1],self.Py[N-1]
 			#if len(EpR[N])!=2: print y+1,x+1,EpR[N]
 			assert len(EpR[N])==2
@@ -921,7 +921,7 @@ class Voronoi(object):
 			Pe.append([x,y])
 			Ee.append((Voronoi.ImgSizeX-0.5-x)*abs(EpR[N][0]-EpR[N][1])/2.)
 			#print "circle(%.1f,%.1f,1.3) # text={%.3f}" %(y+1,x+1,(Voronoi.ImgSizeX-0.5-x)*abs(EpR[N][0]-EpR[N][1])/2.)
-		for N in EpT.keys():
+		for N in EpT:
 			x,y = self.Px[N-1],self.Py[N-1]
 			#if len(EpT[N])!=2: print y+1,x+1,EpT[N],N
 			assert len(EpT[N])==2
@@ -932,11 +932,10 @@ class Voronoi(object):
 			Ee.append((Voronoi.ImgSizeY-0.5-y)*abs(EpT[N][0]-EpT[N][1])/2.)
 			#print "circle(%.1f,%.1f,1.3) # text={%.3f}" %(y+1,x+1,(Voronoi.ImgSizeY-0.5-y)*abs(EpT[N][0]-EpT[N][1])/2.)
 		if Voronoi.debug:
-			f=file('EdgeTriangle.reg','w')
-			for n in range(len(Pe)):
-				print >>f,"polygon(%f,%f,%f,%f,%f,%f) # tag={%f}" % (E0e[n][1]+1-self.OffSetY,E0e[n][0]+1-self.OffSetX,E1e[n][1]+1-self.OffSetY,E1e[n][0]+1-self.OffSetX,Pe[n][1]+1-self.OffSetY,Pe[n][0]+1-self.OffSetX,Ee[n])
-			f.close()
-			print ">> "+f.name
+			with open('EdgeTriangle.reg','w') as freg:
+				for n in range(len(Pe)):
+					print("polygon(%f,%f,%f,%f,%f,%f) # tag={%f}" % (E0e[n][1]+1-self.OffSetY,E0e[n][0]+1-self.OffSetX,E1e[n][1]+1-self.OffSetY,E1e[n][0]+1-self.OffSetX,Pe[n][1]+1-self.OffSetY,Pe[n][0]+1-self.OffSetX,Ee[n]), file=freg)
+				print(">> "+freg.name)
 		################################################################################
 		if ToCum2D:
 			#Calculate the 2D cummulative distribution
@@ -973,30 +972,29 @@ class Voronoi(object):
 			for n in np.arange(P0.shape[0]):
 				Eweight0[n] = Earea[n]/self.Amap[tuple(P0[n])]
 				Eweight1[n] = Earea[n]/self.Amap[tuple(P1[n])]
-			f=file(self.FileName+'_Triangles.dat','w')
-			for n in np.arange(P0.shape[0]):
-				print >>f, "%f %f %f %f %f %f %f %f" % (P0[n][0]-self.OffSetX,P0[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight0[n])
-				print >>f, "%f %f %f %f %f %f %f %f" % (P1[n][0]-self.OffSetX,P1[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight1[n])
-			if not RemoveEdgePoint:
-				Eweighte=np.zeros_like(Ee)
-				for n in np.arange(len(Pe)):
-					Eweighte[n] = Ee[n]/self.Amap[tuple(Pe[n])]
-				for n in np.arange(len(Pe)):
-					print >>f, "%f %f %f %f %f %f %f %f" % (Pe[n][0]-self.OffSetX,Pe[n][1]-self.OffSetY,E0e[n][0]-self.OffSetX,E0e[n][1]-self.OffSetY,E1e[n][0]-self.OffSetX,E1e[n][1]-self.OffSetY,Ee[n],Eweighte[n])
-			f.close()
-			print '>> '+self.FileName+'_Triangles.dat'
+			with open(self.FileName+'_Triangles.dat','w') as fout:
+				for n in np.arange(P0.shape[0]):
+					print("%f %f %f %f %f %f %f %f" % (P0[n][0]-self.OffSetX,P0[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight0[n]), file=fout)
+					print("%f %f %f %f %f %f %f %f" % (P1[n][0]-self.OffSetX,P1[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight1[n]), file=fout)
+				if not RemoveEdgePoint:
+					Eweighte=np.zeros_like(Ee)
+					for n in np.arange(len(Pe)):
+						Eweighte[n] = Ee[n]/self.Amap[tuple(Pe[n])]
+					for n in np.arange(len(Pe)):
+						print("%f %f %f %f %f %f %f %f" % (Pe[n][0]-self.OffSetX,Pe[n][1]-self.OffSetY,E0e[n][0]-self.OffSetX,E0e[n][1]-self.OffSetY,E1e[n][0]-self.OffSetX,E1e[n][1]-self.OffSetY,Ee[n],Eweighte[n]), file=fout)
+				print('>> '+self.FileName+'_Triangles.dat')
 		########################################################################
 		if RemoveEdgePoint:
 			for N in self.EdgePoint:
 				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
-			print color('EdgePoints removed in Amap',34,1)
+			print(color('EdgePoints removed in Amap',34,1))
 	#END_OF_def CalArea(self):
 
 	def CalPVD(self,**kwargs):
-		for k in self.Edges.keys():
+		for k in self.Edges:
 			#print self.Edges[k]
 			self.drawLine(self.Edges[k])
-		if Voronoi.debug: pf.writeto(self.FileName+'_shell.fits',self.pmap,clobber=True)
+		if Voronoi.debug: fits.writeto(self.FileName+'_shell.fits',self.pmap,overwrite=True)
 		#Now each cell is enclosed with pixels marking its cell number.
 		#Then each cell can be filled using these edge pixels as signposts.
 		saveequdist=np.where(self.pmap==-1)
@@ -1014,7 +1012,7 @@ class Voronoi(object):
 				if self.pmap[x,y]<=0: self.pmap[x,y]=Ncurrent
 				else:
 					if self.pmap[x,y]!=Ncurrent: Ncurrent = self.pmap[x,y]
-		if Voronoi.debug: pf.writeto(self.FileName+'_face1.fits',self.pmap,clobber=True)
+		if Voronoi.debug: fits.writeto(self.FileName+'_face1.fits',self.pmap,overwrite=True)
 		if (self.pmap==0).any(): sys.exit('ERROR: sth left')
 		self.pmap[saveequdist[0],saveequdist[1]] = -1
 		#Now cells are filled, leving only those equidistance pixels which are marked as -1
@@ -1029,7 +1027,7 @@ class Voronoi(object):
 				xds=[(x-self.Px[n-1])**2+(y-self.Py[n-1])**2 for n in possiblesite]
 				n=possiblesite[np.argmin(xds)]
 				self.pmap[x,:]=n
-			if Voronoi.debug: pf.writeto(self.FileName+'_face2.fits',self.pmap,clobber=True)
+			if Voronoi.debug: fits.writeto(self.FileName+'_face2.fits',self.pmap,overwrite=True)
 
 		#Assign equidistance pixels which were marked as -1 to cells
 		VeryRareCase=[] # big hole (some pixels are surrounded by -1 pixels)
@@ -1050,7 +1048,7 @@ class Voronoi(object):
 				if (Ns==N).sum()>1: self.pmap[x,y] = -N
 			if self.pmap[x,y]==0: self.pmap[x,y] = -Ns[np.random.randint(0,Ns.size)]
 		self.pmap[self.pmap<0] *= -1
-		if Voronoi.debug: pf.writeto(self.FileName+'_face3.fits',self.pmap,clobber=True)
+		if Voronoi.debug: fits.writeto(self.FileName+'_face3.fits',self.pmap,overwrite=True)
 
 		for x,y in VeryRareCase:
 			Ns = np.array([[fx,fy] for [fx,fy] in [[x+1,y],[x,y+1],[x-1,y],[x,y-1],[x+1,y+1],[x+1,y-1],[x-1,y+1],[x-1,y-1]] \
@@ -1066,7 +1064,7 @@ class Voronoi(object):
 	#END_OF_def CalPVD(self)
 
 	def CalAdj(self):
-		if Voronoi.debug: print color("\nCalculating Adjacency List",32,0)
+		if Voronoi.debug: print(color("\nCalculating Adjacency List",32,0))
 		assert (self.pmap[self.Px,self.Py] == np.arange(1,self.Px.size+1)).all()
 		self.Adj = [[] for _ in itertools.repeat(None,self.Px.size+1)]
 		for e in self.Edges.values():
@@ -1080,14 +1078,15 @@ class Voronoi(object):
 ##By profile.run(), I found that __str__() for large data structure is very slow, sometimes printing it can be the most time-consuming function.
 def main():
 	def usage():
-		print """SweepLine.py File [options]
+		print("""SweepLine.py File [options]
 
 INPUT
 	The input File can be image
 		If the file has an ".fits" suffix.
 	OR events
 		It should be an ASCII file containing the point coordinates in its first two columns.
-		Notice the coordinate is taken as in Python (0~x-1,0~y-1) rather than ds9 (1~y,1~x) style.
+		Notice the coordinate is taken as in Python (image: 0~x-1,0~y-1; event: -0.5~x-0.5,-0.5~y-0.5)
+		rather than the ds9 style (image: 1~y,1~x; event: 0.5~y+0.5,0.5~x+0.5).
 
 OPTIONS
 	-A,--calarea		Calculate cell Areas.
@@ -1115,7 +1114,7 @@ Caveat
 		the image border (range of the Voronoi diagram) is -0.5~size-0.5 for X_py, Y_py, and 0.5~size+0.5 for X_ds9, Y_ds9.
 	The way to reload the Voronoi diagram reg file given by this program is:
 		np.fromregex('xxx.reg',"line\(([0-9.]*),([0-9.]*),([0-9.]*),([0-9.]*)\) # tag={([0-9.]*),([0-9.]*),([0-9.]*),([0-9.]*)}\\n",np.float32)
-		"""
+		""")
 		exit()
 	Options={}
 	S_opt='dDAPTSh'
@@ -1153,7 +1152,7 @@ Caveat
 				if arg[2]!='': border['ylow']=float(arg[2])
 				if arg[3]!='': border['yhigh']=float(arg[3])
 			except:
-				print 'ERROR: --border',arg
+				print('ERROR: --border',arg)
 				exit()
 			else:
 				Options['border'] = border
@@ -1162,7 +1161,7 @@ Caveat
 				n = int(arg)
 				assert n>=0 and n<Voronoi.SLVround
 			except:
-				print 'ERROR: --resolution',arg
+				print('ERROR: --resolution',arg)
 				exit()
 			else:
 				Options['Resolution'] = n
@@ -1171,7 +1170,7 @@ Caveat
 				n = int(arg)
 				assert n>0
 			except:
-				print 'ERROR: --accuracy',arg
+				print('ERROR: --accuracy',arg)
 				exit()
 			else:
 				Voronoi.SLVround = n
@@ -1181,11 +1180,11 @@ Caveat
 			Voronoi.debug = True
 	if len(args)>0: sys.exit("I don't understand"+str(args))
 	if 'InputFile' not in locals():
-		print "Please specify one image!\n"
+		print("Please specify one image!\n")
 		usage()
 
 	if len(InputFile.rsplit('.',1))>1 and InputFile.rsplit('.',1)[1] == 'fits':
-		Voronoi(image=pf.getdata(InputFile),FileName=InputFile.rsplit('.',1)[0],Hdr=pf.getheader(InputFile),**Options)
+		Voronoi(image=fits.getdata(InputFile),FileName=InputFile.rsplit('.',1)[0],Hdr=fits.getheader(InputFile),**Options)
 	else: #a file which store the coordinates of points in the first two columns
 		Voronoi(events=np.loadtxt(InputFile),FileName=InputFile.rsplit('.',1)[0],**Options)
 #import profile
