@@ -112,11 +112,11 @@ class HalfEdge(object):
 			if echo: print(xb,yb,xs,ys)
 			if not -0.5<=xb<=Voronoi.ImgSizeX-0.5: print('Unexpected base x',xb) #I don't know why x is so good
 			if yb<-0.5 and ys>Voronoi.ImgSizeY-0.5: #crossing the whole image
-				if echo: print(self.base,xs,ys,'->', end=' ')
+				#if echo: print(self.base,xs,ys,'->', end=' ')
 				self.base = xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
 				xs,ys =  xb+(Voronoi.ImgSizeY-0.5-yb)*(xs-xb)/(ys-yb), Voronoi.ImgSizeY-0.5
 				xb,yb = self.base
-				if echo: print(self.base,xs,ys)
+				#if echo: print(self.base,xs,ys)
 			elif ys<-0.5 and yb>Voronoi.ImgSizeY-0.5: #backward crossing the whole image
 				xs,ys =  xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
 				self.base = xb+(Voronoi.ImgSizeY-0.5-yb)*(xs-xb)/(ys-yb), Voronoi.ImgSizeY-0.5
@@ -138,16 +138,18 @@ class HalfEdge(object):
 				xb,yb = self.base
 				if echo: print(xb,yb,xs,ys)
 			else:
-				if echo: print('other1')
+				if echo: 
+					print('other1',xb,yb,xs,ys)
 			#treat x y in two steps, to cover such cases that crossing two image edges
 			if xs<-0.5 and xb>-0.5:
 				xs,ys =  -0.5, yb-(xb+0.5)*(ys-yb)/(xs-xb)
 			elif xs>Voronoi.ImgSizeX-0.5 and xb<Voronoi.ImgSizeX-0.5:
-				#print xb,yb,xs,ys,'R->',
+				#print(xb,yb,xs,ys,'R->',end='')
 				xs,ys =  Voronoi.ImgSizeX-0.5, yb+(Voronoi.ImgSizeX-0.5-xb)*(ys-yb)/(xs-xb)
-				#print xb,yb,xs,ys
+				#print(xb,yb,xs,ys)
 			else:
-				if echo: print('other')
+				if echo: 
+					print('other',xb,yb,xs,ys)
 				if not (-0.5<=yb<=Voronoi.ImgSizeY-0.5 and -0.5<=xb<=Voronoi.ImgSizeX-0.5): print('What',xb,yb,xs,ys)
 			self.summit = xs,ys
 	#END_OF_def complete(self,xs,ys,echo=False):
@@ -327,6 +329,7 @@ class SweepTable(dict):
 			#if Voronoi.debug: print '-->:',self[-1]
 		self.ysweep = y
 		return todo
+	#END_OF_def renewEnds(self):
 class EventQueue(dict):
 	def __init__(self,Px,Py):
 		if Px.shape==Py.shape==(Px.size,):
@@ -374,12 +377,14 @@ class Voronoi(object):
 		#StartTime=time.time()
 		self.FileName = kwargs.pop('FileName','FileName')
 		print(color('Voronoi Construction: '+self.FileName,34,1))
-		ToCalArea = kwargs.pop('calarea',False)
-		ToCalPVD = kwargs.pop('calpvd',False)
-		ToCalAdj = kwargs.pop('caladj',False)
-		ToCalDst = kwargs.get('caldst',False)
-		ToCalTri = kwargs.get('calTriangle',False)
-		ToCum2D = kwargs.get('cum2d',False)
+		self.ToCalArea = kwargs.pop('calarea',False)
+		self.ToCalPVD = kwargs.pop('calpvd',False)
+		self.ToCalAdj = kwargs.pop('caladj',False)
+		self.ToCalDst = kwargs.get('caldst',False)
+		self.ToCalTri = kwargs.get('calTriangle',False)
+		self.ToCalCtd = kwargs.get('calCentroid',False)
+		self.ToCum2D = kwargs.get('cum2d',False)
+		self.ToCalDel = kwargs.pop('Delaunay',False)
 		Hdr = kwargs.get('Hdr',None)
 		self.OffSetX=0
 		self.OffSetY=0
@@ -393,8 +398,8 @@ class Voronoi(object):
 		elif events is not None: #float position
 			self.Mode='event'
 			assert events.shape[1] >= 2
-			if ToCalPVD: sys.exit('--calpvd not supported in case of events (as opposed to image) input')
-			if ToCalDst: sys.exit('--caldst not supported in case of events (as opposed to image) input')
+			if self.ToCalPVD: sys.exit('--calpvd not supported in case of events (as opposed to image) input')
+			if self.ToCalDst: sys.exit('--caldst not supported in case of events (as opposed to image) input')
 			border=kwargs.pop('border',{})
 			if border: print('set image size: %s-%s %s-%s' % (border.get('xlow','**'),border.get('xhigh','**'),border.get('ylow','**'),border.get('yhigh','**')))
 
@@ -414,8 +419,8 @@ class Voronoi(object):
 			if Voronoi.debug: print("OffSet:",self.OffSetX,self.OffSetY)
 			if Voronoi.debug: print("ImgSize:",Voronoi.ImgSizeX,Voronoi.ImgSizeY) 
 
-			MakeIntImage=kwargs.pop('MakeIntImage',False)
-			if MakeIntImage:
+			self.MakeIntImage=kwargs.pop('MakeIntImage',False)
+			if self.MakeIntImage:
 				if np.min(events[:,:2])<0: sys.exit('ERROR: Negative position')
 				if Voronoi.ImgSizeX>4096 or Voronoi.ImgSizeY>4096:
 					print("The image size exceeds 4096. Do you really want to make such a large image? (y/n)")
@@ -450,61 +455,74 @@ class Voronoi(object):
 
 		self.Edges = {}
 		self.Amap = None
+		self.Wmap = None
 		self.PPdis = None
 		self.Adj = None
 		self.EdgePoint = None
-		if ToCalDst: #image mode, not events mode
-			ToCalArea = True # need self.Amap
-			ToCalPVD = True # need PVD to fill all the cells in the image
-		if ToCum2D:
-			ToCalArea = True # need self.Amap
-		if ToCalTri:
-			ToCalArea = True
+		if self.ToCalDst: #image mode, not events mode
+			self.ToCalArea = True # need self.Amap
+			self.ToCalPVD = True # need PVD to fill all the cells in the image
+		if self.ToCum2D:
+			self.ToCalArea = True # need self.Amap
+		if self.ToCalTri:
+			self.ToCalArea = True
+		if self.ToCalCtd:
+			self.ToCalArea = True
+			kwargs['CalCentroid']=True
 
 		self.Construct(**kwargs)
-		if ToCalArea: self.CalArea(**kwargs)
-		if ToCalPVD: self.CalPVD(**kwargs)
-		if ToCalAdj: self.CalAdj()
-		if __name__ == '__main__':
-			if self.Mode=='image' or MakeIntImage:
-				d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
-				open(self.FileName+'.reg','w').write('image\n')
-				np.savetxt(self.FileName+'.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
-				print('>> '+self.FileName+'.reg')
-				if kwargs.pop('Delaunay',False):
-					d = np.array([[e.p0[1],e.p0[0],e.p1[1],e.p1[0],e.base[1],e.base[0],e.summit[1],e.summit[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
-					open(self.FileName+'_Delaunay.reg','w').write('image\n')
-					np.savetxt(self.FileName+'_Delaunay.reg',d,fmt="line(%g,%g,%g,%g) # tag={%.3f,%.3f,%.3f,%.3f}")
-					print('>> '+self.FileName+'_Delaunay.reg')
-			if self.Mode=='event':
-				np.savetxt(self.FileName+'_Voronoi.dat',np.array([[e.base[0],e.base[1],e.summit[0],e.summit[1],e.p0[0],e.p0[1],e.p1[0],e.p1[1]] for e in self.Edges.values() if e.summit is not None])-np.array([self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY]),fmt="%f")
-				print('>> '+self.FileName+'_Voronoi.dat')
-			if ToCalDst: #image mode, not events mode
-				assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
-				assert np.all(self.pmap>0) #self.CalPVD done
-				dmap = np.zeros(image.shape,dtype='float64')
-				dmap[self.Px,self.Py] = image[self.Px,self.Py]/self.Amap[self.Px,self.Py]
-				dmap[:,:] = dmap[self.Px,self.Py][self.pmap[self.pmap>0]-1].reshape(Voronoi.ImgSizeX,Voronoi.ImgSizeY)
-				#vmap is not uniquely defined, thus by now the uncertainty is transfered into dmap
-
-				print('>> '+self.FileName+'_dst.fits')
-				fits.writeto(self.FileName+'_dst.fits',dmap,Hdr,overwrite=True)
-				return
-			if ToCalPVD:
-				print('>> '+self.FileName+'_pvd.fits')
-				fits.writeto(self.FileName+'_pvd.fits',self.pmap,Hdr,overwrite=True)
-			if ToCalArea:
-				if type(self.Amap) is dict:
-					print('>> '+self.FileName+'_area.dat')
-					#np.savetxt(self.FileName+'_area.dat',self.Amap.values())
-					np.savetxt(self.FileName+'_area.dat',np.hstack((np.array(list(self.Amap.values())).reshape(len(self.Amap),1),np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
-				else:
-					print('>> '+self.FileName+'_area.fits')
-					fits.writeto(self.FileName+'_area.fits',self.Amap,Hdr,overwrite=True)
-			if ToCum2D:
-					print('>> '+self.FileName+'_cum2d.dat')
-					np.savetxt(self.FileName+'_cum2d.dat',np.hstack((np.array(list(self.CumWmap.values())).reshape(len(self.CumWmap),1),np.array(list(self.CumWmap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
+		if self.ToCalArea: self.CalArea(**kwargs)
+		if self.ToCalCtd:
+			if type(self.Amap) is dict:
+				for (Px,Py) in self.Amap:
+					self.Wmap[(Px,Py)] = (self.Wmap[(Px,Py)]/self.Amap[(Px,Py)]+[Px,Py])/3.
+		if self.ToCalPVD: self.CalPVD(**kwargs)
+		if self.ToCalAdj: self.CalAdj()
 	#END_OF_init
+
+	def saveresults(self):
+		if self.Mode=='image' or self.MakeIntImage:
+			d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
+			open(self.FileName+'.reg','w').write('image\n')
+			np.savetxt(self.FileName+'.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
+			print('>> '+self.FileName+'.reg')
+			if self.ToCalDel:
+				d = np.array([[e.p0[1],e.p0[0],e.p1[1],e.p1[0],e.base[1],e.base[0],e.summit[1],e.summit[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
+				open(self.FileName+'_Delaunay.reg','w').write('image\n')
+				np.savetxt(self.FileName+'_Delaunay.reg',d,fmt="line(%g,%g,%g,%g) # tag={%.3f,%.3f,%.3f,%.3f}")
+				print('>> '+self.FileName+'_Delaunay.reg')
+		if self.Mode=='event':
+			np.savetxt(self.FileName+'_Voronoi.dat',np.array([[e.base[0],e.base[1],e.summit[0],e.summit[1],e.p0[0],e.p0[1],e.p1[0],e.p1[1]] for e in self.Edges.values() if e.summit is not None])-np.array([self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY]),fmt="%f")
+			print('>> '+self.FileName+'_Voronoi.dat')
+		if self.ToCalDst: #image mode, not events mode
+			assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
+			assert np.all(self.pmap>0) #self.CalPVD done
+			dmap = np.zeros(image.shape,dtype='float64')
+			dmap[self.Px,self.Py] = image[self.Px,self.Py]/self.Amap[self.Px,self.Py]
+			dmap[:,:] = dmap[self.Px,self.Py][self.pmap[self.pmap>0]-1].reshape(Voronoi.ImgSizeX,Voronoi.ImgSizeY)
+			#vmap is not uniquely defined, thus by now the uncertainty is transfered into dmap
+			print('>> '+self.FileName+'_dst.fits')
+			fits.writeto(self.FileName+'_dst.fits',dmap,Hdr,overwrite=True)
+		if self.ToCalPVD:
+			print('>> '+self.FileName+'_pvd.fits')
+			fits.writeto(self.FileName+'_pvd.fits',self.pmap,Hdr,overwrite=True)
+		if self.ToCalArea:
+			if type(self.Amap) is dict:
+				print('>> '+self.FileName+'_area.dat')
+				np.savetxt(self.FileName+'_area.dat',np.hstack((np.array(list(self.Amap.values())).reshape(len(self.Amap),1),np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
+			else:
+				print('>> '+self.FileName+'_area.fits')
+				fits.writeto(self.FileName+'_area.fits',self.Amap,Hdr,overwrite=True)
+		if self.ToCalCtd:
+			if type(self.Amap) is dict:
+				print('>> '+self.FileName+'_ctd.reg')
+				vector=np.array(list(self.Wmap.values()))-np.array(list(self.Amap.keys()))
+				Ps=np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY]
+				np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(vector**2,axis=1)),np.arctan2(vector[:,0],vector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
+		if self.ToCum2D:
+				print('>> '+self.FileName+'_cum2d.dat')
+				np.savetxt(self.FileName+'_cum2d.dat',np.hstack((np.array(list(self.CumWmap.values())).reshape(len(self.CumWmap),1),np.array(list(self.CumWmap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
+	#END_OF_def saveresults(self):
 
 	def Construct(self,**kwargs):
 		StartTime=time.time()
@@ -512,7 +530,9 @@ class Voronoi(object):
 		Q = T.Q
 		T.p = Q.delMin()
 		while T.p is not None:
+			print(T.p)
 			for k,e in T.renewEnds():
+				print(k,e)
 				self.Edges[k] = e
 			if T.p is None: #p is deleted during renewing ending half edges.
 				pass
@@ -553,6 +573,7 @@ class Voronoi(object):
 
 		#???
 		for e in self.Edges.values():
+			print('lt',e)
 			if e.summit is not None:
 				if round(e.base[0],Voronoi.SLVround)==round(e.summit[0],Voronoi.SLVround) and round(e.base[1],Voronoi.SLVround)==round(e.summit[1],Voronoi.SLVround):
 					e.summit = None
@@ -563,10 +584,17 @@ class Voronoi(object):
 
 		for l in list(T.keys()):
 			e = T[l]
+			print('---',e)
 			#e.complete((e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[1]-e.p0[1])*(Voronoi.ImgSizeY-0.5))/2/(e.p0[0]-e.p1[0]), Voronoi.ImgSizeY-0.5)
-			if e.direct==0: e.complete(e.base[0],Voronoi.ImgSizeY-0.5)
-			elif e.direct==1: e.complete(Voronoi.ImgSizeX-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[0]-e.p0[0])*(Voronoi.ImgSizeX-0.5))/2/(e.p0[1]-e.p1[1]))
-			elif e.direct==-1: e.complete(-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2-0.25*(e.p1[0]-e.p0[0]))/2/(e.p0[1]-e.p1[1])) #although mostly they cross Voronoi.ImgSizeY, there is a low possibility not. So I input the crossing point at Left or Right edge of image, let complete to recalculate the summit
+			if e.direct==0:
+				print(0,e.base,e.base[0],Voronoi.ImgSizeY-0.5)
+				e.complete(e.base[0],Voronoi.ImgSizeY-0.5)
+			elif e.direct==1:
+				print(1,e.base,Voronoi.ImgSizeX-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[0]-e.p0[0])*(Voronoi.ImgSizeX-0.5))/2/(e.p0[1]-e.p1[1]))
+				e.complete(Voronoi.ImgSizeX-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[0]-e.p0[0])*(Voronoi.ImgSizeX-0.5))/2/(e.p0[1]-e.p1[1]))
+			elif e.direct==-1:
+				print(-1,e.base,-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2-0.25*(e.p1[0]-e.p0[0]))/2/(e.p0[1]-e.p1[1]))
+				e.complete(-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2-0.25*(e.p1[0]-e.p0[0]))/2/(e.p0[1]-e.p1[1])) #although mostly they cross Voronoi.ImgSizeY, there is a low possibility not. So I input the crossing point at Left or Right edge of image, let complete to recalculate the summit
 			self.Edges[l] = T.pop(l)
 
 
@@ -587,6 +615,11 @@ class Voronoi(object):
 		for k in list(self.Edges.keys()):
 			if self.Edges[k].summit is None: self.Edges.pop(k)
 			elif self.Edges[k].base[0]<-0.5 or self.Edges[k].base[0]>self.ImgSizeX-0.5 or self.Edges[k].base[1]<-0.5 or self.Edges[k].base[1]>self.ImgSizeY-0.5 or self.Edges[k].summit[0]<-0.5 or self.Edges[k].summit[0]>self.ImgSizeX-0.5 or self.Edges[k].summit[1]<-0.5 or self.Edges[k].summit[1]>self.ImgSizeY-0.5: print("ERROR",self.Edges[k])
+
+		for k in list(self.Edges.keys()):
+			if (self.Edges[k].base[0],self.Edges[k].summit[0]) in ((-0.5,Voronoi.ImgSizeX-0.5),(Voronoi.ImgSizeX-0.5,-0.5)) \
+			or (self.Edges[k].base[1],self.Edges[k].summit[1]) in ((-0.5,Voronoi.ImgSizeY-0.5),(Voronoi.ImgSizeY-0.5,-0.5)):
+				print('NOTE',self.Edges[k].p0,self.Edges[k].p1,self.Edges[k].base,self.Edges[k].summit)
 		if Voronoi.debug: print('time:',time.time()-StartTime)
 	#END_OF_Construct()
 
@@ -655,14 +688,16 @@ class Voronoi(object):
 		return
 
 	def CalArea(self,**kwargs):
-		ToCum2D=kwargs.pop('cum2d',False)
-		ToCalTri=kwargs.pop('calTriangle',False)
+		CalCentroid=kwargs.pop('CalCentroid',False)
+		self.ToCum2D=kwargs.pop('cum2d',False)
+		self.ToCalTri=kwargs.pop('calTriangle',False)
 		RemoveEdgePoint = kwargs.pop('RemoveEdgePoint',False)
 		#for e in self.Edges.values():
 		#	assert e.summit is not None
 		if Voronoi.debug: print(color("\nCalculating Voronoi Cell Areas",32,0))
 		if type(self.pmap) is dict:
 			self.Amap={(self.Px[n],self.Py[n]):np.float64(0) for n in np.arange(self.Px.size)}
+			if CalCentroid: self.Wmap={(self.Px[n],self.Py[n]):np.zeros(2,dtype=np.float64) for n in np.arange(self.Px.size)}
 			P0 = np.array([e.p0 for e in self.Edges.values()])
 			P1 = np.array([e.p1 for e in self.Edges.values()])
 		else:
@@ -671,6 +706,10 @@ class Voronoi(object):
 			P1 = np.int32([e.p1 for e in self.Edges.values()])
 		E0 = np.array([e.base   for e in self.Edges.values()]).round(Voronoi.SLVround)
 		E1 = np.array([e.summit for e in self.Edges.values()]).round(Voronoi.SLVround)
+		for n in range(len(E0)):
+			if (E0[n,0],E1[n,0]) in ((-0.5,Voronoi.ImgSizeX-0.5),(Voronoi.ImgSizeX-0.5,-0.5)) \
+			or (E0[n,1],E1[n,1]) in ((-0.5,Voronoi.ImgSizeY-0.5),(Voronoi.ImgSizeY-0.5,-0.5)):
+				print(P0[n],P1[n],E0[n],E1[n])
 
 		DisPPList = lambda P0,P1: np.sqrt((P0[:,0]-P1[:,0])**2+(P0[:,1]-P1[:,1])**2)
 		self.PPdis = DisPPList(P0,P1)
@@ -684,6 +723,9 @@ class Voronoi(object):
 		for n in np.arange(P0.shape[0]):
 			self.Amap[tuple(P0[n])] += Earea[n]
 			self.Amap[tuple(P1[n])] += Earea[n]
+			if CalCentroid:
+				self.Wmap[tuple(P0[n])] += Earea[n]*(E0[n]+E1[n])
+				self.Wmap[tuple(P1[n])] += Earea[n]*(E0[n]+E1[n])
 
 		################################################################################
 		#Modify open cells at the image edge
@@ -705,7 +747,7 @@ class Voronoi(object):
 		################################################################################
 		#Edge touching (crossing) two image edges
 		n = np.where((EE[:,0]==-0.5)&(EE[:,1]==-0.5))[0]	#bottom left
-		if n:
+		if n.size>0:
 			n = n[0]
 			x1,y1 = P0[n-P0.shape[0]]
 			x2,y2 = P1[n-P0.shape[0]]
@@ -719,7 +761,7 @@ class Voronoi(object):
 				EpB[self.pmap[x1,y1]] = [-0.5]
 			EE[n] = [-1,-1]
 		n = np.where((EE[:,0]==-0.5)&(EE[:,1]==Voronoi.ImgSizeY-0.5))[0]	#top left
-		if n:
+		if n.size>0:
 			n = n[0]
 			x1,y1 = P0[n-P0.shape[0]]
 			x2,y2 = P1[n-P0.shape[0]]
@@ -735,7 +777,7 @@ class Voronoi(object):
 				#print self.pmap[x1,y1],EpT[self.pmap[x1,y1]]
 			EE[n] = [-1,Voronoi.ImgSizeY]
 		n = np.where((EE[:,0]==Voronoi.ImgSizeX-0.5)&(EE[:,1]==-0.5))[0]	#bottom right
-		if n:
+		if n.size>0:
 			n = n[0]
 			x1,y1 = P0[n-P0.shape[0]]
 			x2,y2 = P1[n-P0.shape[0]]
@@ -749,7 +791,7 @@ class Voronoi(object):
 				EpR[self.pmap[x1,y1]] = [-0.5]
 			EE[n] = [Voronoi.ImgSizeX,-1]
 		n = np.where((EE[:,0]==Voronoi.ImgSizeX-0.5)&(EE[:,1]==Voronoi.ImgSizeY-0.5))[0]	#top right
-		if n:
+		if n.size>0:
 			n = n[0]
 			x1,y1 = P0[n-P0.shape[0]]
 			x2,y2 = P1[n-P0.shape[0]]
@@ -777,12 +819,17 @@ class Voronoi(object):
 			VyL[0] = min(VyL[0],EE[n,1])
 			VyL[1] = max(VyL[1],EE[n,1])
 		for n in np.where(EE[:,1]==-0.5)[0]:	#bottom EpB
+			print(n,EE[n], EE[n-P0.shape[0]], E0[n],E1[n], P0[n-P0.shape[0]], P1[n-P0.shape[0]])
 			N = self.pmap[tuple(P0[n-P0.shape[0]])]
 			EdgePoint.append(N)
+			print(N,EpB.get(N,[]),end='->')
 			EpB[N] = EpB.get(N,[])+[EE[n,0]]
+			print(EpB[N])
 			N = self.pmap[tuple(P1[n-P0.shape[0]])]
 			EdgePoint.append(N)
+			print(N,EpB.get(N,[]),end='->')
 			EpB[N] = EpB.get(N,[])+[EE[n,0]]
+			print(EpB[N])
 			VxB[0] = min(VxB[0],EE[n,0])
 			VxB[1] = max(VxB[1],EE[n,0])
 		for n in np.where(EE[:,0]==Voronoi.ImgSizeX-0.5)[0]:	#right EpR
@@ -851,6 +898,7 @@ class Voronoi(object):
 			if len(EpL[N])==1:
 				if EpL[N][0]==VyL[0] and N in EpB.keys():
 					#N refers to the left bottom pixel
+					print(x,y,N,EpL[N],EpB[N],VxB)
 					assert len(EpB[N])==1 and EpB[N][0]==VxB[0]
 					EpL[N].append(-0.5)
 					EpB[N].append(-0.5)
@@ -895,7 +943,12 @@ class Voronoi(object):
 			x,y = self.Px[N-1],self.Py[N-1]
 			#if len(EpL[N])!=2: print y+1,x+1,EpL[N]
 			assert len(EpL[N])==2
-			self.Amap[x,y] += (x+0.5)*abs(EpL[N][0]-EpL[N][1])/2.
+			t_area = (x+0.5)*abs(EpL[N][0]-EpL[N][1])/2.
+			#print('Left',x,y,EpL[N])
+			#if N in EpB: print('	bottom',EpB[N])
+			#if N in EpT: print('	top',EpT[N])
+			self.Amap[x,y] += t_area
+			self.Wmap[x,y] += t_area*np.array([-0.5*2,EpL[N][0]+EpL[N][1]]) #edge_left: x=minimum, two y values
 			E0e.append([-0.5,EpL[N][0]])
 			E1e.append([-0.5,EpL[N][1]])
 			Pe.append([x,y])
@@ -905,7 +958,13 @@ class Voronoi(object):
 			x,y = self.Px[N-1],self.Py[N-1]
 			#if len(EpB[N])!=2: print y+1,x+1,EpB[N]
 			assert len(EpB[N])==2
-			self.Amap[x,y] += (y+0.5)*abs(EpB[N][0]-EpB[N][1])/2.
+			t_area = (y+0.5)*abs(EpB[N][0]-EpB[N][1])/2.
+			#print('Bottom',x,y,EpB[N])
+			#if N in EpL: print('	left',EpL[N])
+			#if N in EpR: print('	right',EpR[N])
+			self.Amap[x,y] += t_area
+			self.Wmap[x,y] += t_area*np.array([EpB[N][0]+EpB[N][1],-0.5*2]) #edge_bottom: two x values, y=minimum
+			#print(x,y,t_area)
 			E0e.append([EpB[N][0],-0.5])
 			E1e.append([EpB[N][1],-0.5])
 			Pe.append([x,y])
@@ -915,7 +974,12 @@ class Voronoi(object):
 			x,y = self.Px[N-1],self.Py[N-1]
 			#if len(EpR[N])!=2: print y+1,x+1,EpR[N]
 			assert len(EpR[N])==2
-			self.Amap[x,y] += (Voronoi.ImgSizeX-0.5-x)*abs(EpR[N][0]-EpR[N][1])/2.
+			t_area = (Voronoi.ImgSizeX-0.5-x)*abs(EpR[N][0]-EpR[N][1])/2.
+			self.Amap[x,y] += t_area
+			#print('Right',x,y,EpR[N])
+			#if N in EpB: print('	bottom',EpB[N])
+			#if N in EpT: print('	top',EpT[N])
+			self.Wmap[x,y] += t_area*np.array([(Voronoi.ImgSizeX-0.5)*2,EpR[N][0]+EpR[N][1]]) #edge_right: x=maximum, two y values
 			E0e.append([Voronoi.ImgSizeX-0.5,EpR[N][0]])
 			E1e.append([Voronoi.ImgSizeX-0.5,EpR[N][1]])
 			Pe.append([x,y])
@@ -925,7 +989,12 @@ class Voronoi(object):
 			x,y = self.Px[N-1],self.Py[N-1]
 			#if len(EpT[N])!=2: print y+1,x+1,EpT[N],N
 			assert len(EpT[N])==2
-			self.Amap[x,y] += (Voronoi.ImgSizeY-0.5-y)*abs(EpT[N][0]-EpT[N][1])/2.
+			t_area = (Voronoi.ImgSizeY-0.5-y)*abs(EpT[N][0]-EpT[N][1])/2.
+			#print('Top',x,y,EpT[N])
+			#if N in EpL: print('	left',EpL[N])
+			#if N in EpR: print('	right',EpR[N])
+			self.Amap[x,y] += t_area
+			self.Wmap[x,y] += t_area*np.array([EpT[N][0]+EpT[N][1],(Voronoi.ImgSizeY-0.5)*2]) #edge_top, two x values, y=maximum
 			E0e.append([EpT[N][0],Voronoi.ImgSizeY-0.5])
 			E1e.append([EpT[N][1],Voronoi.ImgSizeY-0.5])
 			Pe.append([x,y])
@@ -937,7 +1006,7 @@ class Voronoi(object):
 					print("polygon(%f,%f,%f,%f,%f,%f) # tag={%f}" % (E0e[n][1]+1-self.OffSetY,E0e[n][0]+1-self.OffSetX,E1e[n][1]+1-self.OffSetY,E1e[n][0]+1-self.OffSetX,Pe[n][1]+1-self.OffSetY,Pe[n][0]+1-self.OffSetX,Ee[n]), file=freg)
 				print(">> "+freg.name)
 		################################################################################
-		if ToCum2D:
+		if self.ToCum2D:
 			#Calculate the 2D cummulative distribution
 			#1. It's useless
 			#2. Large cells at the image border introduce large error
@@ -963,7 +1032,7 @@ class Voronoi(object):
 				#Sum all the triangles with at least two vertexes falling inside the integration box
 				self.CumWmap[X,Y] = np.sum(Eweight0[np.sum(ok[:3],axis=0)>=2])+np.sum(Eweight1[np.sum(ok[1:],axis=0)>=2])
 		################################################################################
-		if ToCalTri:
+		if self.ToCalTri:
 			########################################
 			#Divide the image into triangles (smallest pieces, number of triangles = number of edges)
 			#Calculate the weight (number of points) in each triangle
@@ -1090,6 +1159,7 @@ INPUT
 
 OPTIONS
 	-A,--calarea		Calculate cell Areas.
+	-C,--calCentroid	Calculate cell centroid.
 	-P,--calpvd		Calculate Pixelated Voronoi Diagram, only in case of image input.
 	-S,--caldst		Calculate Density image, only in case of image input.
 	-D,--calDelaunay	Make Delaunay diagram.
@@ -1118,7 +1188,7 @@ Caveat
 		exit()
 	Options={}
 	S_opt='dDAPTSh'
-	L_opt=['calpvd','calarea','caldst','calDelaunay','calTriangle','rmedgepoint','border=','resolution=','accuracy=','makeimage','help']
+	L_opt=['calpvd','calarea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','border=','resolution=','accuracy=','makeimage','help']
 	opts,args=getopt.getopt(sys.argv[1:],S_opt,L_opt)
 	if len(args)>0:
 		for arg in args:
@@ -1136,6 +1206,8 @@ Caveat
 			Options['calTriangle']=True
 		elif opt == '--calarea' or opt == '-A':
 			Options['calarea']=True
+		elif opt == '--calCentroid' or opt == '-C':
+			Options['calCentroid']=True
 		elif opt == '--caldst' or opt == '-S':
 			Options['caldst']=True
 		elif opt == '--makeimage':
@@ -1179,14 +1251,29 @@ Caveat
 		elif opt == '-d':
 			Voronoi.debug = True
 	if len(args)>0: sys.exit("I don't understand"+str(args))
-	if 'InputFile' not in locals():
+	if 'InputFile' in locals():
+		Options['FileName']=InputFile.rsplit('.',1)[0]
+	else:
 		print("Please specify one image!\n")
 		usage()
 
 	if len(InputFile.rsplit('.',1))>1 and InputFile.rsplit('.',1)[1] == 'fits':
-		Voronoi(image=fits.getdata(InputFile),FileName=InputFile.rsplit('.',1)[0],Hdr=fits.getheader(InputFile),**Options)
+		Options['Hdr']=fits.getheader(InputFile)
+		vor=Voronoi(image=fits.getdata(InputFile),**Options)
 	else: #a file which store the coordinates of points in the first two columns
-		Voronoi(events=np.loadtxt(InputFile),FileName=InputFile.rsplit('.',1)[0],**Options)
+		Options['FileName']='tmp.'+InputFile.rsplit('.',1)[0]+str(0)
+		vor=Voronoi(events=np.loadtxt(InputFile),**Options)
+		ctd=np.array(list(vor.Wmap.values()))
+		np.savetxt(vor.FileName+'_ctd.dat',ctd)
+		vor.saveresults()
+		exit()
+		for n in range(1,81):
+			Options['FileName']='tmp.'+InputFile.rsplit('.',1)[0]+str(n)
+			vor=Voronoi(events=ctd,**Options)
+			ctd=np.array(list(vor.Wmap.values()))
+			np.savetxt(vor.FileName+'_ctd.dat',ctd)
+			vor.saveresults()
+
 #import profile
 if __name__ == '__main__':
 	#profile.run('main()')
