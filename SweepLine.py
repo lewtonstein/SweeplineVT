@@ -90,13 +90,17 @@ class HalfEdge(object):
 		ux,uy = self.p0
 		vx,vy = self.p1
 		wx,wy = Next.p1
+		print('###',self.p0,self.p1,Next.p1)
 		a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
-		if a<=0: return None
+		print(a)
+		#if a<=0: return None #!!!!!!!!!!!!!!check
+		if a==0: return None #!!!!!!!!!!!!!!check
 		b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
 		b2 = (vx-wx)*(vx+wx)+(vy-wy)*(vy+wy)
 		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
 		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
 		d = np.sqrt((cx-ux)**2+(cy-uy)**2)
+		print(cx,cy,d,cy+d)
 		return cx,cy+d
 	def complete(self,xs,ys,echo=False):
 		#fill self.summit
@@ -530,42 +534,54 @@ class Voronoi(object):
 		Q = T.Q
 		T.p = Q.delMin()
 		while T.p is not None:
-			print(T.p)
+			print('T.p',T.p)
 			for k,e in T.renewEnds():
 				print(k,e)
 				self.Edges[k] = e
 			if T.p is None: #p is deleted during renewing ending half edges.
 				pass
 			elif len(T.p)==2: #Site Event
-				#if Voronoi.debug: print 'SiteEvent:',T.p
+				#if Voronoi.debug: 
+				print('SiteEvent:',T.p)
 				n = T.locate(T.p)
 				L = T.KL[n]
 				R = T.KL[n+1]
+				print(n,L,R,T)
 				T.insert(n,T.p[0],T.p[1])
+				print(T)
 				l = T.KL[n+1]
 				r = T.KL[n+2]
 				if R!= T.KL[n+3]: sys.exit('no')
 				Q.deleteifhas(L)
+				print(l,T[L],T[l])
 				i1 = T[L].Intersect(T[l])
+				print(i1)
+				print(R,T[r],T[R])
 				i2 = T[r].Intersect(T[R])
+				print(i2)
 				if i1 is not None:
-					#if Voronoi.debug: print '->V',i1,T[L],T[l]
+					#if Voronoi.debug: 
+					print('->V',i1,T[L],T[l])
 					Q.insert(i1,L,l)
 				if i2 is not None:
-					#if Voronoi.debug: print '->V',i2,T[r],T[R]
+					#if Voronoi.debug: 
+					print('->V',i2,T[r],T[R])
 					Q.insert(i2,r,R)
 
 			elif len(T.p)==4: #Vertex Event
 				if T.p[2] not in T or T.p[3] not in T:
 					print('Useless VertexEvent:',T.p)
 				else:
-					#if Voronoi.debug: print 'VertexEvent:',T.p[0],T.p[1]
+					#if Voronoi.debug: 
+					print('VertexEvent:',T.p[0],T.p[1])
 					l,r = T.shrink()
 					self.Edges[l] = T.pop(l)
 					self.Edges[r] = T.pop(r)
 			else: sys.exit('error2')
-			#if Voronoi.debug: print 'T',T
-			#if Voronoi.debug: print 'Q',Q
+			#if Voronoi.debug: 
+			print('T',T)
+			#if Voronoi.debug: 
+			print('Q',Q)
 			T.p = Q.delMin()
 		#END_OF_while p is not None:
 		T.pop(-1)
