@@ -90,9 +90,17 @@ class HalfEdge(object):
 		ux,uy = self.p0
 		vx,vy = self.p1
 		wx,wy = Next.p1
-		print('###',self.p0,self.p1,Next.p1)
 		a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
-		print(a)
+
+		if uy == vy and ux != vx and vy != wy: # and False:
+			cx = (ux + vx)/2
+			#cy = (ux**2 - 2 ux vx + vx**2 + 4 vy**2 - 4 wy**2)/(8 (vy - wy))
+			#d= (ux**2 - 2 ux vx + vx**2 + 4 vy**2 - 8 vy wy + 4 wy**2)/(8 (wy - vy))
+			cy = ((ux-vx)**2 + 4*(vy+wy)*(vy-wy))/8/(vy-wy)
+			d= ((ux-vx)**2 + 4*(vy-wy)**2)/8/(wy-vy)
+			print('--------',cx,cy,d)
+			return cx,cy+d
+
 		#if a<=0: return None #!!!!!!!!!!!!!!check
 		if a==0: return None #!!!!!!!!!!!!!!check
 		b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
@@ -100,7 +108,7 @@ class HalfEdge(object):
 		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
 		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
 		d = np.sqrt((cx-ux)**2+(cy-uy)**2)
-		print(cx,cy,d,cy+d)
+		print('----->',cx,cy,d)
 		return cx,cy+d
 	def complete(self,xs,ys,echo=False):
 		#fill self.summit
@@ -192,7 +200,7 @@ class SweepTable(dict):
 		#initialize self dict
 		ymin = np.where(Py==Py.min())[0]
 		x0,y0 = Px[ymin[0]],Py[ymin[0]]
-		self[-1] = HalfEdge((-1,-1),(x0,y0),-1,(-1,-1)) #0: left boundary of image
+		self[-1] = HalfEdge((-1,-1),(x0,y0),-1,(-1,-1)) #0: left boundary of image ?
 		self.KL.append(-1)
 		self.counter = itertools.count(1) #to make sure each key is different
 		for n in np.arange(1,ymin.size):
@@ -202,7 +210,7 @@ class SweepTable(dict):
 			self[count] = HalfEdge((x0,y0),(x,y),0,((x0+x)/2.,-0.5))
 			self.KL.append(count)
 			x0,y0 = x,y
-		self[-2] = HalfEdge((x0,y0),(-2,-2),1,(-2,-2)) #1: right boundary of image
+		self[-2] = HalfEdge((x0,y0),(-2,-2),1,(-2,-2)) #1: right boundary of image ?
 		self.KL.append(-2)
 
 	def __str__(self):
@@ -238,26 +246,26 @@ class SweepTable(dict):
 		count = next(self.counter)
 		self.KL.insert(n+1,count)
 		self[count] = HalfEdge((x0,y0),(x,y),-1,base,count+1) #new minus half edge
-		#if Voronoi.debug: print 'new: ',count,self[count]
+		if Voronoi.debug: print('new: ',count,self[count])
 		count = next(self.counter)
 		self.KL.insert(n+2,count)
 		self[count] = HalfEdge((x,y),(x0,y0),1,base,count-1)  #new plus half edge
-		#if Voronoi.debug: print 'new: ',count,self[count]
+		if Voronoi.debug: print('new: ',count,self[count])
 
 	def shrink(self):
 		x,y,l,r = self.p
+		print('shrinkstart',x,y,self[l],self[r])
 		n = self.KL.index(l)
-		if r!=self.KL[n+1]: sys.exit('l-not-r')
-		else:
-			L = self.KL[n-1]
-			R = self.KL[n+2]
+		assert r==self.KL[n+1]
+		L = self.KL[n-1]
+		R = self.KL[n+2]
 		self.Q.deleteifhas(L)
 		self.Q.deleteifhas(r)
 		#(x,y) is the top point of the circle which goes through the three points (l.p0,l.p1,r.p1), l.p1==r.p0
 		#the center of the circle is (x,y-r)
 		#let x0,y0 be anyone of the three points
 		#(x-x0)^2 + (y-r-y0)^2 = r^2
-		if self[l].p1!=self[r].p0: sys.exit('no')
+		assert self[l].p1==self[r].p0
 		if self[l].p0[1]==self[r].p1[1]:
 			direct = 0
 		else:
@@ -273,32 +281,37 @@ class SweepTable(dict):
 		if y==y0: x0,y0 = self[l].p1
 		if y==y0: x0,y0 = self[r].p1
 		xb,yb = x,(y**2-y0**2-(x-x0)**2)/2./(y-y0)
-		#if Voronoi.debug: print 'shrink:',self[l],self[r],x,y,(xb,yb)
+		if Voronoi.debug: print('shrink:',self[l],self[r],x,y,(xb,yb))
 		count = next(self.counter)
 		self[count] = HalfEdge(self[l].p0,self[r].p1,direct,(xb,yb))
+		print('HalfEdge',self[count])
 		self.KL[n] = count
 		self.KL.pop(n+1)
+		print('comp',self[l],xb,yb)
 		self[l].complete(xb,yb)
+		print('comp',self[r],xb,yb)
 		self[r].complete(xb,yb)
 		i = self[L].Intersect(self[count])
 		if i is not None:
-			#if Voronoi.debug: print '->V',i,self[L],self[count]
+			if Voronoi.debug: print('->V',i,self[L],self[count])
 			self.Q.insert(i,L,count)
 		i = self[count].Intersect(self[R])
 		if i is not None:
-			#if Voronoi.debug: print '->V',i,self[count],self[R]
+			if Voronoi.debug: print('->V',i,self[count],self[R])
 			self.Q.insert(i,count,R)
 		return l,r
+	#END_OF_def shrink(self):
+
 	def renewEnds(self):
 		y = self.p[1]
 		todo = []
 		if y <= self.ysweep or len(self)<=2: return todo
 		if self[self.KL[-2]].isRightOf(Voronoi.ImgSizeX-0.5,y):
-			#if Voronoi.debug: print 'EdgeR:',self[-2],self[self.KL[-2]]
-			if self[-2].p0!=self[self.KL[-2]].p1: sys.exit('should not')
+			#if Voronoi.debug: print('EdgeR:',self[-2],self[self.KL[-2]])
+			assert self[-2].p0==self[self.KL[-2]].p1
 			u0,u1 = self[self.KL[-2]].p0
 			v0,v1 = self[self.KL[-2]].p1
-			if u1==v1: sys.exit('cannot')
+			assert u1!=v1
 			yb = (u0**2-2*u0*(Voronoi.ImgSizeX-0.5)+u1**2-v0**2+2*v0*(Voronoi.ImgSizeX-0.5)-v1**2)/2./(u1-v1)
 			self[self.KL[-2]].complete(Voronoi.ImgSizeX-0.5,yb)
 			todo.append([self.KL[-2],self[self.KL[-2]].copy()])
@@ -314,9 +327,9 @@ class SweepTable(dict):
 			self.KL.pop(-2)
 			self[-2].p1 = (-2,-2)
 			self[-2].direct = 1
-			#if Voronoi.debug: print '-->',self[-2]
+			#if Voronoi.debug: print('-->',self[-2])
 		if not self[self.KL[1]].isRightOf(-0.5,y):
-			#if Voronoi.debug: print 'EdgeL:',self[-1],self[self.KL[1]]
+			#if Voronoi.debug: print('EdgeL:',self[-1],self[self.KL[1]])
 			if self[-1].p1!=self[self.KL[1]].p0: sys.exit('should not')
 			u0,u1 = self[self.KL[1]].p0
 			v0,v1 = self[self.KL[1]].p1
@@ -330,7 +343,7 @@ class SweepTable(dict):
 			self.KL.pop(1)
 			self[-1].p0 = (-1,-1)
 			self[-1].direct = -1
-			#if Voronoi.debug: print '-->:',self[-1]
+			#if Voronoi.debug: print('-->:',self[-1])
 		self.ysweep = y
 		return todo
 	#END_OF_def renewEnds(self):
@@ -529,59 +542,56 @@ class Voronoi(object):
 	#END_OF_def saveresults(self):
 
 	def Construct(self,**kwargs):
+		Voronoi.debug=True
 		StartTime=time.time()
 		T = SweepTable(self.Px,self.Py)
 		Q = T.Q
 		T.p = Q.delMin()
 		while T.p is not None:
-			print('T.p',T.p)
+			print('TV1',T)
 			for k,e in T.renewEnds():
-				print(k,e)
 				self.Edges[k] = e
+			print('TV2',T)
 			if T.p is None: #p is deleted during renewing ending half edges.
 				pass
 			elif len(T.p)==2: #Site Event
-				#if Voronoi.debug: 
-				print('SiteEvent:',T.p)
+				if Voronoi.debug: print('SiteEvent:',T.p)
+				#if round(T.p[0],4)==0.7355 and round(T.p[1],4)==3.3070: exit()
+				if Voronoi.debug: print('TT1',T)
 				n = T.locate(T.p)
 				L = T.KL[n]
 				R = T.KL[n+1]
-				print(n,L,R,T)
 				T.insert(n,T.p[0],T.p[1])
-				print(T)
+				if Voronoi.debug: print('TT2',T)
 				l = T.KL[n+1]
 				r = T.KL[n+2]
 				if R!= T.KL[n+3]: sys.exit('no')
 				Q.deleteifhas(L)
-				print(l,T[L],T[l])
 				i1 = T[L].Intersect(T[l])
-				print(i1)
-				print(R,T[r],T[R])
 				i2 = T[r].Intersect(T[R])
-				print(i2)
 				if i1 is not None:
-					#if Voronoi.debug: 
-					print('->V',i1,T[L],T[l])
+					if Voronoi.debug: print('->V',i1,T[L],T[l])
 					Q.insert(i1,L,l)
 				if i2 is not None:
-					#if Voronoi.debug: 
-					print('->V',i2,T[r],T[R])
+					if Voronoi.debug: print('->V',i2,T[r],T[R])
 					Q.insert(i2,r,R)
+				if Voronoi.debug: print('TT3',T)
 
 			elif len(T.p)==4: #Vertex Event
 				if T.p[2] not in T or T.p[3] not in T:
 					print('Useless VertexEvent:',T.p)
 				else:
-					#if Voronoi.debug: 
-					print('VertexEvent:',T.p[0],T.p[1])
+					if Voronoi.debug: print('VertexEvent:',T.p[0],T.p[1])
+					print('TV',T.p,T)
 					l,r = T.shrink()
+					print('pop',T[l])
+					print('pop',T[r])
 					self.Edges[l] = T.pop(l)
 					self.Edges[r] = T.pop(r)
+					print('TV',T)
 			else: sys.exit('error2')
-			#if Voronoi.debug: 
-			print('T',T)
-			#if Voronoi.debug: 
-			print('Q',Q)
+			#if Voronoi.debug: print('T',T)
+			#if Voronoi.debug: print('Q',Q)
 			T.p = Q.delMin()
 		#END_OF_while p is not None:
 		T.pop(-1)
@@ -589,7 +599,6 @@ class Voronoi(object):
 
 		#???
 		for e in self.Edges.values():
-			print('lt',e)
 			if e.summit is not None:
 				if round(e.base[0],Voronoi.SLVround)==round(e.summit[0],Voronoi.SLVround) and round(e.base[1],Voronoi.SLVround)==round(e.summit[1],Voronoi.SLVround):
 					e.summit = None
@@ -600,16 +609,15 @@ class Voronoi(object):
 
 		for l in list(T.keys()):
 			e = T[l]
-			print('---',e)
 			#e.complete((e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[1]-e.p0[1])*(Voronoi.ImgSizeY-0.5))/2/(e.p0[0]-e.p1[0]), Voronoi.ImgSizeY-0.5)
 			if e.direct==0:
-				print(0,e.base,e.base[0],Voronoi.ImgSizeY-0.5)
+				#print(0,e.base,e.base[0],Voronoi.ImgSizeY-0.5)
 				e.complete(e.base[0],Voronoi.ImgSizeY-0.5)
 			elif e.direct==1:
-				print(1,e.base,Voronoi.ImgSizeX-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[0]-e.p0[0])*(Voronoi.ImgSizeX-0.5))/2/(e.p0[1]-e.p1[1]))
+				#print(1,e.base,Voronoi.ImgSizeX-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[0]-e.p0[0])*(Voronoi.ImgSizeX-0.5))/2/(e.p0[1]-e.p1[1]))
 				e.complete(Voronoi.ImgSizeX-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[0]-e.p0[0])*(Voronoi.ImgSizeX-0.5))/2/(e.p0[1]-e.p1[1]))
 			elif e.direct==-1:
-				print(-1,e.base,-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2-0.25*(e.p1[0]-e.p0[0]))/2/(e.p0[1]-e.p1[1]))
+				#print(-1,e.base,-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2-0.25*(e.p1[0]-e.p0[0]))/2/(e.p0[1]-e.p1[1]))
 				e.complete(-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2-0.25*(e.p1[0]-e.p0[0]))/2/(e.p0[1]-e.p1[1])) #although mostly they cross Voronoi.ImgSizeY, there is a low possibility not. So I input the crossing point at Left or Right edge of image, let complete to recalculate the summit
 			self.Edges[l] = T.pop(l)
 
@@ -743,6 +751,10 @@ class Voronoi(object):
 				self.Wmap[tuple(P0[n])] += Earea[n]*(E0[n]+E1[n])
 				self.Wmap[tuple(P1[n])] += Earea[n]*(E0[n]+E1[n])
 
+		print('--------------------')
+		for n in range(len(P0)):
+			print(f'{P0[n,1]+1:f} {P0[n,0]+1:f} {P1[n,1]+1:f} {P1[n,0]+1:f} -- {E0[n,1]+1:f} {E0[n,0]+1:f} {E1[n,1]+1:f} {E1[n,0]+1:f}')
+		print('--------------------')
 		################################################################################
 		#Modify open cells at the image edge
 		#Ignore the special cases of the cells at the four corners
@@ -835,7 +847,8 @@ class Voronoi(object):
 			VyL[0] = min(VyL[0],EE[n,1])
 			VyL[1] = max(VyL[1],EE[n,1])
 		for n in np.where(EE[:,1]==-0.5)[0]:	#bottom EpB
-			print(n,EE[n], EE[n-P0.shape[0]], E0[n],E1[n], P0[n-P0.shape[0]], P1[n-P0.shape[0]])
+			#print(n,EE[n], EE[n-P0.shape[0]], E0[n],E1[n], P0[n-P0.shape[0]], P1[n-P0.shape[0]])
+			print(n,EE[n], EE[n-P0.shape[0]], E0[n-P0.shape[0]],E1[n-P0.shape[0]], P0[n-P0.shape[0]], P1[n-P0.shape[0]])
 			N = self.pmap[tuple(P0[n-P0.shape[0]])]
 			EdgePoint.append(N)
 			print(N,EpB.get(N,[]),end='->')
@@ -888,6 +901,7 @@ class Voronoi(object):
 			assert VxB == [Voronoi.ImgSizeX, -1]
 			n = np.argmin(self.Py)
 			N = self.pmap[self.Px[n],self.Py[n]]
+			print(EpL.get(N,None),EpR.get(N,None),EpL.get(N,None),'0=',VyL,EpR.get(N,None),'0=',VyR)
 			assert len(EpL[N])==1 and len(EpR[N])==1 and EpL[N][0]==VyL[0] and EpR[N][0]==VyR[0]
 			EpB[N] = [-0.5, Voronoi.ImgSizeX-0.5]
 			EpL[N].append(-0.5)
