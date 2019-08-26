@@ -80,6 +80,7 @@ class HalfEdge(object):
 					cx = (self.direct*np.sqrt(insqrt)-u[0]*v[1]+u[0]*y0+u[1]*v[0]-v[0]*y0)/(u[1]-v[1])
 					if insqrt<0: print('Error sqrt<0 %g %.8f %.8f - %.8f %.8f - %.8f %.8f  %.8f' % (insqrt,u[0],u[1],v[0],v[1],px,y0,cx))
 				self.hist = [y0,cx]
+			#print('isRightOf',self.p0,self.p1,px,y0,cx)
 			return cx>px
 	def Intersect(self,Next):
 		if self.p1!=Next.p0: sys.exit('ERROR: not consecutive')
@@ -238,7 +239,7 @@ class SweepTable(dict):
 				Nlow = Nmid
 		return Nlow
 
-	def insert(self,n,x,y):
+	def NewEdges(self,n,x,y):
 		#input: self[KL[n]].X <= p < self[KL[n+1]].X
 		#p: y,x,...
 		x0,y0 = self[self.KL[n]].p1
@@ -291,14 +292,16 @@ class SweepTable(dict):
 		self[l].complete(xb,yb)
 		print('comp',self[r],xb,yb)
 		self[r].complete(xb,yb)
-		i = self[L].Intersect(self[count])
-		if i is not None:
-			if Voronoi.debug: print('->V',i,self[L],self[count])
-			self.Q.insert(i,L,count)
-		i = self[count].Intersect(self[R])
-		if i is not None:
-			if Voronoi.debug: print('->V',i,self[count],self[R])
-			self.Q.insert(i,count,R)
+		i1 = self[L].Intersect(self[count])
+		if i1 is not None:
+			#if round(i1[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): print('WARNING: very small step',T.p,i1)
+			if Voronoi.debug: print('->V',i1,self[L],self[count])
+			self.Q.insert(i1[0],i1[1],L,count)
+		i2 = self[count].Intersect(self[R])
+		if i2 is not None:
+			#if round(i2[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): print('WARNING: very small step',T.p,i2)
+			if Voronoi.debug: print('->V',i2,self[count],self[R])
+			self.Q.insert(i2[0],i2[1],count,R)
 		return l,r
 	#END_OF_def shrink(self):
 
@@ -307,7 +310,8 @@ class SweepTable(dict):
 		todo = []
 		if y <= self.ysweep or len(self)<=2: return todo
 		if self[self.KL[-2]].isRightOf(Voronoi.ImgSizeX-0.5,y):
-			#if Voronoi.debug: print('EdgeR:',self[-2],self[self.KL[-2]])
+			#if Voronoi.debug: 
+			print(color('EdgeR:',31,1),self[-2],self[self.KL[-2]])
 			assert self[-2].p0==self[self.KL[-2]].p1
 			u0,u1 = self[self.KL[-2]].p0
 			v0,v1 = self[self.KL[-2]].p1
@@ -315,11 +319,11 @@ class SweepTable(dict):
 			yb = (u0**2-2*u0*(Voronoi.ImgSizeX-0.5)+u1**2-v0**2+2*v0*(Voronoi.ImgSizeX-0.5)-v1**2)/2./(u1-v1)
 			self[self.KL[-2]].complete(Voronoi.ImgSizeX-0.5,yb)
 			todo.append([self.KL[-2],self[self.KL[-2]].copy()])
-			if self.KL[-2] in self.Q:
-				print('Please check')
-				print(self[self.KL[-2]])
-				print(self[self.KL[-1]])
-				exit()
+			#if self.KL[-2] in self.Q: #!!! maybe useless
+			#	print('Please check')
+			#	print(self[self.KL[-2]])
+			#	print(self[self.KL[-1]])
+			#	exit()
 			#maybe the VertexEvt to delete is just the p which has just been deleted from Q as the minimum.
 			if self.p is not None and len(self.p)==4 and self.KL[-3]==self.p[2]: self.p = None
 			else: self.Q.deleteifhas(self.KL[-3])
@@ -327,14 +331,23 @@ class SweepTable(dict):
 			self.KL.pop(-2)
 			self[-2].p1 = (-2,-2)
 			self[-2].direct = 1
-			#if Voronoi.debug: print('-->',self[-2])
+			#if Voronoi.debug: 
+			print('-->',self[-2])
 		if not self[self.KL[1]].isRightOf(-0.5,y):
-			#if Voronoi.debug: print('EdgeL:',self[-1],self[self.KL[1]])
-			if self[-1].p1!=self[self.KL[1]].p0: sys.exit('should not')
+			#if Voronoi.debug: 
+			print(color('EdgeL:',31,1),self[-1],self[self.KL[1]],-0.5,y)
+			assert self[-1].p1==self[self.KL[1]].p0
 			u0,u1 = self[self.KL[1]].p0
 			v0,v1 = self[self.KL[1]].p1
-			if u1==v1: sys.exit('cannot')
+			assert u1!=v1
 			yb = (u0**2-2*u0*(-0.5)+u1**2-v0**2+2*v0*(-0.5)-v1**2)/2./(u1-v1)
+			print(color('comp',31,1),self[self.KL[1]],-0.5,yb)
+			if self.p is not None: print(len(self.p),self.KL[1],self.p)
+			#if self.p is None or len(self.p)<4 or self.KL[1]!=self.p[2]:
+			if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]:
+				self.p = None
+				print('dont')
+				return [] #check!!!!!!!!!!!!!!!!!!!
 			self[self.KL[1]].complete(-0.5,yb)
 			todo.append([self.KL[1],self[self.KL[1]].copy()])
 			if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]: self.p = None
@@ -343,11 +356,14 @@ class SweepTable(dict):
 			self.KL.pop(1)
 			self[-1].p0 = (-1,-1)
 			self[-1].direct = -1
-			#if Voronoi.debug: print('-->:',self[-1])
+			#if Voronoi.debug: 
+			print('-->:',self[-1])
 		self.ysweep = y
 		return todo
 	#END_OF_def renewEnds(self):
-class EventQueue(dict):
+
+#class EventQueue(dict): #!!! seems useless
+class EventQueue(object):
 	def __init__(self,Px,Py):
 		if Px.shape==Py.shape==(Px.size,):
 			self.S = np.zeros((Px.size,2))
@@ -359,7 +375,8 @@ class EventQueue(dict):
 		else:
 			sys.exit('ERROR: shape error')
 	def __str__(self):
-		return self.__repr__()+'\n'+str(self.VerEvt)
+		return str(self.VerEvt)
+		#return self.__repr__()+'\n'+str(self.VerEvt)
 	def delMin(self):
 		while len(self.VerEvt)>0 and self.VerEvt[0][2] == 0: heapq.heappop(self.VerEvt)
 		#The interesting property of a heap is that its smallest element is always the root, heap[0].
@@ -368,21 +385,24 @@ class EventQueue(dict):
 			return self.S[self.SMin-1][[1,0]]	#Site event
 		elif len(self.VerEvt)>0 and (self.SMin>=self.S.shape[0] or self.S[self.SMin].tolist() > self.VerEvt[0][:2]):
 			y,x,count,l,r = heapq.heappop(self.VerEvt)
-			self.pop(l)
+			#print('lewton', y,x,count,l,r,self.VerEvt[0])
+			#self.pop(l) #!!! seems useless
 			return [x,y,l,r]	#Vertex event
 		else:
 			return None
 		#END_OF_def delMin(self):
-	def insert(self,p,l,r,count=None):
-		if l in self: sys.exit(str(l)+'already in')
+	def insert(self,x,y,l,r,count=None):
+		#assert l not in self #!!! seems useless
 		if count is None: count=next(self.counter)
-		evt = [p[1],p[0],count,l,r]
-		self[l] = evt
+		evt = [y,x,count,l,r]
+		#self[l] = evt #!!! seems useless
 		heapq.heappush(self.VerEvt,evt)
 	def deleteifhas(self,l):
-		#if Voronoi.debug: print '><:',l
-		evt = self.pop(l,None)
-		if evt is not None: evt[2] = 0
+		pass #!!! seems useless
+		#evt = self.pop(l,None)
+		#if evt is not None: evt[2] = 0
+#END_OF_class EventQueue(dict):
+
 class Voronoi(object):
 	ImgSizeX = 0
 	ImgSizeY = 0
@@ -548,51 +568,73 @@ class Voronoi(object):
 		Q = T.Q
 		T.p = Q.delMin()
 		while T.p is not None:
-			print('TV1',T)
+			#print('Tstart1',T,T.p)
 			for k,e in T.renewEnds():
 				self.Edges[k] = e
-			print('TV2',T)
+			#print('Tstart2',T)
 			if T.p is None: #p is deleted during renewing ending half edges.
 				pass
 			elif len(T.p)==2: #Site Event
-				if Voronoi.debug: print('SiteEvent:',T.p)
+				#if Voronoi.debug: 
+				print('SiteEvent:',T.p)
 				#if round(T.p[0],4)==0.7355 and round(T.p[1],4)==3.3070: exit()
-				if Voronoi.debug: print('TT1',T)
+				if Voronoi.debug: print('TS1',T)
 				n = T.locate(T.p)
 				L = T.KL[n]
 				R = T.KL[n+1]
-				T.insert(n,T.p[0],T.p[1])
-				if Voronoi.debug: print('TT2',T)
+				T.NewEdges(n,T.p[0],T.p[1])
+				if Voronoi.debug: print('TS2',T)
 				l = T.KL[n+1]
 				r = T.KL[n+2]
-				if R!= T.KL[n+3]: sys.exit('no')
+				assert R == T.KL[n+3]
 				Q.deleteifhas(L)
 				i1 = T[L].Intersect(T[l])
 				i2 = T[r].Intersect(T[R])
-				if i1 is not None:
-					if Voronoi.debug: print('->V',i1,T[L],T[l])
-					Q.insert(i1,L,l)
 				if i2 is not None:
+					if round(i2[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): print('WARNING: very small step',T.p,i2)
 					if Voronoi.debug: print('->V',i2,T[r],T[R])
-					Q.insert(i2,r,R)
-				if Voronoi.debug: print('TT3',T)
+					Q.insert(i2[0],i2[1],r,R)
+				if T[L].direct!=0:
+					if i1 is not None:
+						if round(i1[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): print('WARNING: very small step',T.p,i1)
+						if Voronoi.debug: print('->V',i1,T[L],T[l])
+						Q.insert(i1[0],i1[1],L,l)
+				else:
+					Q.insert(i1[0],i1[1],L,l)
+					assert n>=1
+					T.NewEdges(n-1,T.p[0],T.p[1])
+					if Voronoi.debug: print('TS2',T)
+					l = T.KL[n]
+					r = T.KL[n+1]
+					i3 = T[r].Intersect(T[L])
+					if i3 is not None:
+						if round(i3[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): print('WARNING: very small step',T.p,i3)
+						if Voronoi.debug: print('->V',i3,T[L],T[l])
+						assert round(i3[0],Voronoi.SLVround)==round(i1[0],Voronoi.SLVround) \
+						and round(i3[1],Voronoi.SLVround)==round(i1[1],Voronoi.SLVround)
+						Q.insert(i3[0],i3[1],r,L)
+						#Q.insert(i3[0],i3[1],r,L,l)
+				#if Voronoi.debug: print('TT3',T)
 
 			elif len(T.p)==4: #Vertex Event
 				if T.p[2] not in T or T.p[3] not in T:
 					print('Useless VertexEvent:',T.p)
 				else:
-					if Voronoi.debug: print('VertexEvent:',T.p[0],T.p[1])
-					print('TV',T.p,T)
+					#if Voronoi.debug: 
+					print('VertexEvent:',T.p[0],T.p[1])
+					print('TV1',T.p,T)
 					l,r = T.shrink()
 					print('pop',T[l])
 					print('pop',T[r])
 					self.Edges[l] = T.pop(l)
 					self.Edges[r] = T.pop(r)
-					print('TV',T)
+					print('TV2',T)
 			else: sys.exit('error2')
 			#if Voronoi.debug: print('T',T)
-			#if Voronoi.debug: print('Q',Q)
+			if Voronoi.debug:
+				print(color('Q',31,1),Q)
 			T.p = Q.delMin()
+			print(T.p)
 		#END_OF_while p is not None:
 		T.pop(-1)
 		T.pop(-2)
