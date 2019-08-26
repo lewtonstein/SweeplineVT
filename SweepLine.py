@@ -301,8 +301,8 @@ class SweepTable(dict):
 		L = self.KL[n-1]
 		R = self.KL[n+2]
 		#print(L,l,r,R,self)
-		self.Q.deleteifhas(L)
-		self.Q.deleteifhas(r)
+		#self.Q.deleteifhas(L)
+		#self.Q.deleteifhas(r)
 		direct,xb,yb=SweepTable.merge2one(self[l], self[r],x,y)
 		if self[l].direct==self[r].direct==1 and xb<=max(self[l].base[0],self[r].base[0]) \
 		or self[l].direct==self[r].direct==-1 and xb>=min(self[l].base[0],self[r].base[0]):
@@ -355,7 +355,7 @@ class SweepTable(dict):
 			if self.p is not None and len(self.p)==4 and self.KL[-3]==self.p[2]:
 				self.p = None
 				print('WARNING no',self.p)
-			else: self.Q.deleteifhas(self.KL[-3])
+			#else: self.Q.deleteifhas(self.KL[-3])
 			self[-2] = self.pop(self.KL[-2])
 			self.KL.pop(-2)
 			self[-2].p1 = (-2,-2)
@@ -373,7 +373,7 @@ class SweepTable(dict):
 			if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]:
 				self.p = None
 				print('WARNING no',self.p)
-			else: self.Q.deleteifhas(self.KL[1])
+			#else: self.Q.deleteifhas(self.KL[1])
 			self[-1] = self.pop(self.KL[1])
 			self.KL.pop(1)
 			self[-1].p0 = (-1,-1)
@@ -431,8 +431,8 @@ class EventQueue(object):
 	#	evt = [y,x,count,l,r]
 	#	#self[l] = evt #!!! seems useless
 	#	heapq.heappush(self.VerEvt,evt)
-	def deleteifhas(self,l):
-		pass #!!! seems useless
+	#def deleteifhas(self,l):
+		#pass #!!! seems useless
 		#evt = self.pop(l,None)
 		#if evt is not None: evt[2] = 0
 #END_OF_class EventQueue(dict):
@@ -590,7 +590,7 @@ class Voronoi(object):
 		if self.ToCalCtd:
 			if type(self.Amap) is dict:
 				print('>> '+self.FileName+'_ctd.reg .dat')
-				np.savetxt(vor.FileName+'_ctd.dat',np.array(list(vor.Wmap.values())))
+				np.savetxt(self.FileName+'_ctd.dat',np.array(list(self.Wmap.values())))
 				Ps=np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY]
 				np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
 		if self.ToCum2D:
@@ -620,7 +620,7 @@ class Voronoi(object):
 				r = T.KL[n+2]
 				assert R == T.KL[n+3]
 				#from left to right L l r R
-				Q.deleteifhas(L)
+				#Q.deleteifhas(L)
 				i1 = T[L].Intersect(T[l])
 				i2 = T[r].Intersect(T[R])
 				if i1 is not None:
