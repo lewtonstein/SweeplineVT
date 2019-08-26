@@ -304,8 +304,8 @@ class SweepTable(dict):
 		self.Q.deleteifhas(L)
 		self.Q.deleteifhas(r)
 		direct,xb,yb=SweepTable.merge2one(self[l], self[r],x,y)
-		if self[l].direct==self[r].direct==1 and xb<=min(self[l].base[0],self[r].base[0]) \
-		or self[l].direct==self[r].direct==-1 and xb>=max(self[l].base[0],self[r].base[0]):
+		if self[l].direct==self[r].direct==1 and xb<=max(self[l].base[0],self[r].base[0]) \
+		or self[l].direct==self[r].direct==-1 and xb>=min(self[l].base[0],self[r].base[0]):
 			return []
 		if Voronoi.debug: print('merge:',l,r,'->',(xb,yb))
 		count = next(self.counter)
@@ -499,7 +499,8 @@ class Voronoi(object):
 					if readyn!='y': exit()
 				if Voronoi.ImgSizeX<5 or Voronoi.ImgSizeY<5:
 					print("The image size < 5. Do you really want to make such a large image? (y/n)")
-					readyn=input()
+					#readyn=input()
+					readyn='y'
 					if readyn!='y': exit()
 				pmap = np.zeros((int(Voronoi.ImgSizeX),int(Voronoi.ImgSizeY)),dtype='float64')
 				if Voronoi.debug: print("init pmap",pmap.shape)
@@ -527,6 +528,7 @@ class Voronoi(object):
 		self.Edges = {}
 		self.Amap = None
 		self.Wmap = None
+		self.ctdvector=None
 		self.PPdis = None
 		self.Adj = None
 		self.EdgePoint = None
@@ -547,6 +549,7 @@ class Voronoi(object):
 			if type(self.Amap) is dict:
 				for (Px,Py) in self.Amap:
 					self.Wmap[(Px,Py)] = (self.Wmap[(Px,Py)]/self.Amap[(Px,Py)]+[Px,Py])/3.
+				self.ctdvector=np.array(list(self.Wmap.values()))-np.array(list(self.Amap.keys()))
 		if self.ToCalPVD: self.CalPVD(**kwargs)
 		if self.ToCalAdj: self.CalAdj()
 	#END_OF_init
@@ -586,10 +589,10 @@ class Voronoi(object):
 				fits.writeto(self.FileName+'_area.fits',self.Amap,Hdr,overwrite=True)
 		if self.ToCalCtd:
 			if type(self.Amap) is dict:
-				print('>> '+self.FileName+'_ctd.reg')
-				vector=np.array(list(self.Wmap.values()))-np.array(list(self.Amap.keys()))
+				print('>> '+self.FileName+'_ctd.reg .dat')
+				np.savetxt(vor.FileName+'_ctd.dat',np.array(list(vor.Wmap.values())))
 				Ps=np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY]
-				np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(vector**2,axis=1)),np.arctan2(vector[:,0],vector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
+				np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
 		if self.ToCum2D:
 				print('>> '+self.FileName+'_cum2d.dat')
 				np.savetxt(self.FileName+'_cum2d.dat',np.hstack((np.array(list(self.CumWmap.values())).reshape(len(self.CumWmap),1),np.array(list(self.CumWmap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
@@ -1312,6 +1315,7 @@ Caveat
 		elif opt == '--calCentroid' or opt == '-C':
 			Options['calCentroid']=True
 		elif opt == '--makeCVT' or opt == '-M':
+			Options['calCentroid']=True
 			Options['makeCVT']=True
 		elif opt == '--caldst' or opt == '-S':
 			Options['caldst']=True
@@ -1370,12 +1374,15 @@ Caveat
 		vor.saveresults()
 		if Options.get('makeCVT',False):
 			ctd=np.array(list(vor.Wmap.values()))
-			for n in range(1,81):
+			n=1
+			while True:
 				Options['FileName']=InputFile.rsplit('.',1)[0]+str(n)
 				vor=Voronoi(events=ctd,**Options)
 				ctd=np.array(list(vor.Wmap.values()))
 				if n%10==0: vor.saveresults()
-				np.savetxt(vor.FileName+'_ctd.dat',ctd)
+				if np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1)))<0.001: break
+				n+=1
+			vor.saveresults()
 
 #import profile
 if __name__ == '__main__':
