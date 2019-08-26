@@ -253,36 +253,45 @@ class SweepTable(dict):
 		self[count] = HalfEdge((x,y),(x0,y0),1,base,count-1)  #new plus half edge
 		if Voronoi.debug: print('new: ',count,self[count])
 
+	@staticmethod
+	def merge2one(HE_l,HE_r,x,y):
+		#two halfedge intersect and merge into one at the Vertex event x,y
+		#(x,y) is the top point of the circle which goes through the three points (l.p0,l.p1,r.p1), l.p1==r.p0
+		#the center of the circle is (x,y-r)
+		#(x-x0)^2 + (y-r-y0)^2 = r^2, where x0,y0 is any one of the three points
+		assert HE_l.p1==HE_r.p0
+		if HE_l.p0[1]==HE_r.p1[1]:
+			direct = 0
+		else:
+			if HE_l.p0[1]>HE_r.p1[1]:
+				x0 = HE_l.p0[0]
+				if x==x0: direct = 1
+			else:
+				x0 = HE_r.p1[0]
+				if x==x0: direct = -1
+			if x < x0: direct = -1
+			elif x > x0: direct = 1
+		x0,y0 = HE_l.p0
+		if y==y0: x0,y0 = HE_l.p1
+		if y==y0: x0,y0 = HE_r.p1
+		xb,yb = x,(y**2-y0**2-(x-x0)**2)/2./(y-y0)
+		if Voronoi.debug: print('shrink:',HE_l,HE_r,x,y,(xb,yb))
+		return direct,xb,yb
+
 	def shrink(self):
-		x,y,l,r = self.p
-		print('shrinkstart',x,y,self[l],self[r])
+		if len(self.p)==4:
+			x,y,l,r = self.p
+		elif len(self.p)==5:
+			x,y,l,r,ll = self.p
+		else: sys.exit('ERR')
+		#print('shrinkstart',x,y,self[l],self[r])
 		n = self.KL.index(l)
 		assert r==self.KL[n+1]
 		L = self.KL[n-1]
 		R = self.KL[n+2]
 		self.Q.deleteifhas(L)
 		self.Q.deleteifhas(r)
-		#(x,y) is the top point of the circle which goes through the three points (l.p0,l.p1,r.p1), l.p1==r.p0
-		#the center of the circle is (x,y-r)
-		#let x0,y0 be anyone of the three points
-		#(x-x0)^2 + (y-r-y0)^2 = r^2
-		assert self[l].p1==self[r].p0
-		if self[l].p0[1]==self[r].p1[1]:
-			direct = 0
-		else:
-			if self[l].p0[1]>self[r].p1[1]:
-				x0 = self[l].p0[0]
-				if x==x0: direct = 1
-			else:
-				x0 = self[r].p1[0]
-				if x==x0: direct = -1
-			if x < x0: direct = -1
-			elif x > x0: direct = 1
-		x0,y0 = self[l].p0
-		if y==y0: x0,y0 = self[l].p1
-		if y==y0: x0,y0 = self[r].p1
-		xb,yb = x,(y**2-y0**2-(x-x0)**2)/2./(y-y0)
-		if Voronoi.debug: print('shrink:',self[l],self[r],x,y,(xb,yb))
+		direct,xb,yb=SweepTable.merge2one(self[l], self[r],x,y)
 		count = next(self.counter)
 		self[count] = HalfEdge(self[l].p0,self[r].p1,direct,(xb,yb))
 		print('HalfEdge',self[count])
@@ -384,19 +393,28 @@ class EventQueue(object):
 			self.SMin += 1
 			return self.S[self.SMin-1][[1,0]]	#Site event
 		elif len(self.VerEvt)>0 and (self.SMin>=self.S.shape[0] or self.S[self.SMin].tolist() > self.VerEvt[0][:2]):
-			y,x,count,l,r = heapq.heappop(self.VerEvt)
-			#print('lewton', y,x,count,l,r,self.VerEvt[0])
-			#self.pop(l) #!!! seems useless
-			return [x,y,l,r]	#Vertex event
+			e = heapq.heappop(self.VerEvt)
+			#self.pop(n) #!!! seems useless
+			if len(e)==5:
+				y,x,count,n,nr=e
+				return [x,y,n,nr]	#Vertex event
+			elif len(e)==5:
+				y,x,count,n,nr,nl=e
+				return [x,y,n,nr,nl]	#Vertex event
+			else: sys.exit('ERR')
 		else:
 			return None
 		#END_OF_def delMin(self):
-	def insert(self,x,y,l,r,count=None):
-		#assert l not in self #!!! seems useless
-		if count is None: count=next(self.counter)
-		evt = [y,x,count,l,r]
-		#self[l] = evt #!!! seems useless
-		heapq.heappush(self.VerEvt,evt)
+	def insert(self,x,y,n,nr,nl=None): #four or five elements
+		count=next(self.counter)
+		if nl is None: heapq.heappush(self.VerEvt,[y,x,count,n,nr])
+		else: heapq.heappush(self.VerEvt,[y,x,count,n,nr,nl])
+	#def insert(self,x,y,l,r,count=None): #four elements
+	#	#assert l not in self #!!! seems useless
+	#	if count is None: count=next(self.counter)
+	#	evt = [y,x,count,l,r]
+	#	#self[l] = evt #!!! seems useless
+	#	heapq.heappush(self.VerEvt,evt)
 	def deleteifhas(self,l):
 		pass #!!! seems useless
 		#evt = self.pop(l,None)
@@ -604,22 +622,23 @@ class Voronoi(object):
 					assert n>=1
 					T.NewEdges(n-1,T.p[0],T.p[1])
 					if Voronoi.debug: print('TS2',T)
-					l = T.KL[n]
-					r = T.KL[n+1]
-					i3 = T[r].Intersect(T[L])
+					l2 = T.KL[n]
+					r2 = T.KL[n+1]
+					i3 = T[r2].Intersect(T[L])
 					if i3 is not None:
 						if round(i3[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): print('WARNING: very small step',T.p,i3)
-						if Voronoi.debug: print('->V',i3,T[L],T[l])
+						if Voronoi.debug: print('->V',i3,T[r2],T[L])
 						assert round(i3[0],Voronoi.SLVround)==round(i1[0],Voronoi.SLVround) \
 						and round(i3[1],Voronoi.SLVround)==round(i1[1],Voronoi.SLVround)
-						Q.insert(i3[0],i3[1],r,L)
-						#Q.insert(i3[0],i3[1],r,L,l)
+						#Q.insert(i3[0],i3[1],r2,L)
+						#Q.insert(i3[0],i3[1],r2,L,l)
 				#if Voronoi.debug: print('TT3',T)
 
-			elif len(T.p)==4: #Vertex Event
+			elif len(T.p)>=4: #Vertex Event
 				if T.p[2] not in T or T.p[3] not in T:
 					print('Useless VertexEvent:',T.p)
 				else:
+					#for n in T.p[2:]: assert n in T
 					#if Voronoi.debug: 
 					print('VertexEvent:',T.p[0],T.p[1])
 					print('TV1',T.p,T)
