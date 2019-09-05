@@ -29,7 +29,12 @@ except: from astropy.io import fits
 import heapq
 import itertools
 import time,sys,warnings,os,getopt
-#warnings.simplefilter('ignore')
+def _ltshowwarning(message, category, filename, lineno, file=None, line=None):
+	if category==UserWarning: print('\033[33mWARNING\033[0m:',message)
+	else:
+		msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
+		warnings._showwarnmsg_impl(msg)
+warnings.showwarning=_ltshowwarning
 color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;0m"
 #define:
 #p<q if py<qy or py=qy and px<qx
@@ -75,12 +80,13 @@ class HalfEdge(object):
 				if u[1]>y0: sys.exit('Error u1>y0   %.8f %.8f - %.8f %.8f - %.8f %.8f' % (u[0],u[1],v[0],v[1],px,y0))
 				if round(u[1],Voronoi.SLVround)==round(v[1],Voronoi.SLVround): cx = (u[0]+v[0])/2.
 				elif round(u[1],Voronoi.SLVround)==round(y0,Voronoi.SLVround): cx = u[0]
+				elif u[0]==v[0]==px: cx=np.inf*self.direct
 				else:
 					insqrt = (u[1]*v[1]-u[1]*y0-v[1]*y0+y0*y0)*(u[0]*u[0]-2*u[0]*v[0]+u[1]*u[1]-2*u[1]*v[1]+v[0]*v[0]+v[1]*v[1])
 					cx = (self.direct*np.sqrt(insqrt)-u[0]*v[1]+u[0]*y0+u[1]*v[0]-v[0]*y0)/(u[1]-v[1])
 					if insqrt<0: print('Error sqrt<0 %g %.8f %.8f - %.8f %.8f - %.8f %.8f  %.8f' % (insqrt,u[0],u[1],v[0],v[1],px,y0,cx))
 				self.hist = [y0,cx]
-			#print('isRightOf',self.p0,self.p1,px,y0,cx)
+			#print('isRightOf',self.p0,self.p1,self.direct,px,y0,cx)
 			return cx>px
 	def Intersect(self,Next):
 		#print(self.p1,Next.p0)
@@ -88,6 +94,10 @@ class HalfEdge(object):
 		if self.p0==(-1,-1): return None
 		if Next.p1==(-2,-2): return None
 		if self.direct<=0 and Next.direct>=0: return None #not Intersect
+		if self.p0[0]==self.p1[0]==Next.p1[0]:
+			if self.direct==Next.direct==1: return np.inf,(self.p0[1]+self.p1[1]+Next.p0[1]+Next.p1[1])/4
+			elif self.direct==Next.direct==-1: return -np.inf,(self.p0[1]+self.p1[1]+Next.p0[1]+Next.p1[1])/4
+			else: sys.exit('I donot know')
 		#1: a<0 b>0  2: a<0 b=0  3: a=0 b>0  4: a=0 b=0
 		ux,uy = self.p0
 		vx,vy = self.p1
@@ -95,16 +105,21 @@ class HalfEdge(object):
 		if uy>wy: ux,uy,wx,wy=wx,wy,ux,uy
 		if vy>wy: vx,vy,wx,wy=wx,wy,vx,vy
 		#print('Intersect',(ux,uy),(vx,vy),(wx,wy))
-		a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
 
-		if uy == vy and ux != vx and vy != wy: # and False:
+		if uy == vy and ux != vx and vy != wy:
 			cx = (ux + vx)/2
-			#cy = (ux**2 - 2 ux vx + vx**2 + 4 vy**2 - 4 wy**2)/(8 (vy - wy))
-			#d= (ux**2 - 2 ux vx + vx**2 + 4 vy**2 - 8 vy wy + 4 wy**2)/(8 (wy - vy))
-			cy = ((ux-vx)**2 + 4*(vy+wy)*(vy-wy))/8/(vy-wy)
-			d= ((ux-vx)**2 + 4*(vy-wy)**2)/8/(wy-vy)
-			return cx,cy+d
+			if wx==cx:
+				#solve[(x - u1)^2+(y - u2)^2=r^2, (x-v1)^2+(y-u2)^2=r^2, w2-y=r, x,y]
+				cy = (4*(wy**2-uy**2)-(ux-vx)**2)/8./(wy-uy)
+				#d = (4*(wy-uy)**2+(ux-vx)**2)/8./(wy-uy)
+				return cy,wy
+			else:
+				#solve[(x - u1)^2+(y - u2)^2=r2,(x-v1)^2+(y-u2)^2=r2, (x-w1)^2+(y-w2)^2=r2, x,y]
+				cy = (-ux*wx - vx*wx + wx**2 + wy**2 + ux*vx - uy**2)/2./(wy-uy)
+				d = np.sqrt(((ux-wx)**2+(uy-wy)**2)*((wx-vx)**2+(uy-wy)**2))/2./(wy-uy)
+				return cx,cy+d
 
+		a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
 		#if a<=0: return None #!!!!!!!!!!!!!!check
 		if a==0: return None #!!!!!!!!!!!!!!check
 		b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
@@ -112,6 +127,7 @@ class HalfEdge(object):
 		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
 		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
 		d = np.sqrt((cx-ux)**2+(cy-uy)**2)
+		#print(cx,cy,cy+d)
 		return cx,cy+d
 	def complete(self,xs,ys,echo=False):
 		#fill self.summit
@@ -201,10 +217,7 @@ class SweepTable(dict):
 		#initialize self dict
 		ymin = list(np.where(Py==Py.min())[0])
 		if len(ymin)==1: n=ymin.pop(0)
-		elif len(ymin)==2:
-			if Px[ymin[0]]<Px[ymin[1]]: n=ymin.pop(0)
-			else: n=ymin.pop(1)
-		else: sys.exit('ERROR')
+		else: n=ymin.pop(np.argmin(Px[ymin]))
 		x0,y0 = Px[n],Py[n]
 		self[-1] = HalfEdge((-1,-1),(x0,y0),-1,(-1,-1)) #0: left boundary of image
 		#print('HalfEdge',-1,(-1,-1),(x0,y0),-1,(-1,-1))
@@ -291,12 +304,19 @@ class SweepTable(dict):
 		if abs(y-HE_l.p1[1])>abs(y-y0): x0,y0=HE_l.p1
 		if abs(y-HE_r.p1[1])>abs(y-y0): x0,y0=HE_r.p1
 		xb,yb = x,(y**2-y0**2-(x-x0)**2)/2./(y-y0)
+		#print(HE_l) print(HE_r) print(x,y,x0,y0,'-->',xb,yb)
 		return direct,xb,yb
 
 	def shrink(self):
 		x,y,l,r = self.p
 		#print('shrink4start',x,y,self[l],self[r])
 		n = self.KL.index(l)
+		if r!=self.KL[n+1]:
+			print('shrink4start',x,y,l,self[l],r,self[r])
+			print(self.KL)
+			print(self.KL[n],self[self.KL[n]])
+			print(self.KL[n+1],self[self.KL[n+1]])
+			print(self.KL[n+2],self[self.KL[n+2]])
 		assert r==self.KL[n+1]
 		L = self.KL[n-1]
 		R = self.KL[n+2]
@@ -323,7 +343,7 @@ class SweepTable(dict):
 			or self[count].direct==self[L].direct==-1 and i1[0]>=max(self[count].base[0],self[L].base[0]):
 				if Voronoi.debug: print('--V NO',i1,self[L],self[count])
 			else:
-				if round(i1[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): print('WARNING: very small step',self.p,i1)
+				if round(i1[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i1}')
 				if Voronoi.debug: print('->V L',i1,self[L],self[count])
 				self.Q.insert(i1[0],i1[1],L,count)
 		i2 = self[count].Intersect(self[R])
@@ -332,7 +352,7 @@ class SweepTable(dict):
 			or self[count].direct==self[R].direct==-1 and i2[0]>=max(self[count].base[0],self[R].base[0]):
 				if Voronoi.debug: print('--V NO',i2,self[count],self[R])
 			else:
-				if round(i2[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): print('WARNING: very small step',self.p,i2)
+				if round(i2[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i2}')
 				if Voronoi.debug: print('->V R',i2,self[count],self[R])
 				self.Q.insert(i2[0],i2[1],count,R)
 		return l,r
@@ -340,10 +360,11 @@ class SweepTable(dict):
 
 	def RenewSideBoundary(self):
 		y = self.p[1]
+		#print(color('lt',31,1),self[self.KL[-2]],Voronoi.ImgSizeX-0.5,y,self.ysweep)
 		todo = []
 		if y <= self.ysweep or len(self)<=2: return todo
 		if self[self.KL[-2]].isRightOf(Voronoi.ImgSizeX-0.5,y):
-			#if Voronoi.debug: print(color('EdgeR:',31,1),self[-2],self[self.KL[-2]])
+			#if Voronoi.debug: print(color('Edge:',31,1),self[-2],self[self.KL[-2]])
 			assert self[-2].p0==self[self.KL[-2]].p1
 			u0,u1 = self[self.KL[-2]].p0
 			v0,v1 = self[self.KL[-2]].p1
@@ -362,7 +383,7 @@ class SweepTable(dict):
 			self[-2].direct = 1
 			if Voronoi.debug: print('-->',self[-2])
 		if not self[self.KL[1]].isRightOf(-0.5,y):
-			#if Voronoi.debug: print(color('EdgeL:',31,1),self[-1],self[self.KL[1]],-0.5,y)
+			#if Voronoi.debug: print(color('Edge:',31,1),self[-1],self[self.KL[1]],-0.5,y)
 			assert self[-1].p1==self[self.KL[1]].p0
 			u0,u1 = self[self.KL[1]].p0
 			v0,v1 = self[self.KL[1]].p1
@@ -382,6 +403,53 @@ class SweepTable(dict):
 		self.ysweep = y
 		return todo
 	#END_OF_def RenewSideBoundary(self):
+
+	def RenewRightBoundary(self):
+		#y = self.p[1]
+		#print(color('lt',31,1),self[self.KL[-2]],Voronoi.ImgSizeX-0.5,y,self.ysweep)
+		#todo = []
+		#if y <= self.ysweep or len(self)<=2: return todo
+		#if self[self.KL[-2]].isRightOf(Voronoi.ImgSizeX-0.5,y):
+		if 1:
+			if Voronoi.debug: print(color('EdgeR:',31,1),self[-2],self[self.KL[-2]])
+			assert self[-2].p0==self[self.KL[-2]].p1
+			u0,u1 = self[self.KL[-2]].p0
+			v0,v1 = self[self.KL[-2]].p1
+			assert u1!=v1
+			yb = (u0**2-2*u0*(Voronoi.ImgSizeX-0.5)+u1**2-v0**2+2*v0*(Voronoi.ImgSizeX-0.5)-v1**2)/2./(u1-v1)
+			self[self.KL[-2]].complete(Voronoi.ImgSizeX-0.5,yb)
+			todo=[self.KL[-2],self[self.KL[-2]].copy()]
+			self[-2] = self.pop(self.KL[-2])
+			self.KL.pop(-2)
+			self[-2].p1 = (-2,-2)
+			self[-2].direct = 1
+			if Voronoi.debug: print('-->',self[-2])
+		return todo
+	#END_OF_def RenewRightBoundary(self):
+	def RenewLeftBoundary(self):
+		y = self.p[1]
+		#print(color('lt',31,1),self[self.KL[-2]],Voronoi.ImgSizeX-0.5,y,self.ysweep)
+		#todo = []
+		#if y <= self.ysweep or len(self)<=2: return todo
+		#if not self[self.KL[1]].isRightOf(-0.5,y):
+		if 1:
+			if Voronoi.debug: print(color('EdgeL:',31,1),self[-1],self[self.KL[1]],-0.5,y)
+			assert self[-1].p1==self[self.KL[1]].p0
+			u0,u1 = self[self.KL[1]].p0
+			v0,v1 = self[self.KL[1]].p1
+			assert u1!=v1
+			yb = (u0**2-2*u0*(-0.5)+u1**2-v0**2+2*v0*(-0.5)-v1**2)/2./(u1-v1)
+			self[self.KL[1]].complete(-0.5,yb)
+			todo=[self.KL[1],self[self.KL[1]].copy()]
+			#if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]: self.p = None print('WARNING no',self.p)
+			#else: self.Q.deleteifhas(self.KL[1])
+			self[-1] = self.pop(self.KL[1])
+			self.KL.pop(1)
+			self[-1].p0 = (-1,-1)
+			self[-1].direct = -1
+			#if Voronoi.debug: print('-->:',self[-1])
+		return todo
+	#END_OF_def RenewLeftBoundary(self):
 
 #class EventQueue(dict): #!!! seems useless
 class EventQueue(object):
@@ -406,7 +474,7 @@ class EventQueue(object):
 			return self.S[self.SMin-1][[1,0]]	#Site event
 		elif len(self.VerEvt)>0 and (self.SMin>=self.S.shape[0] or self.S[self.SMin].tolist() > self.VerEvt[0][:2]):
 			e = heapq.heappop(self.VerEvt)
-			if len(self.VerEvt)>0 and round(e[0],Voronoi.SLVround)>=round(self.VerEvt[0][0],Voronoi.SLVround): print('WARNING: next step is very near',e,self.VerEvt[0])
+			if len(self.VerEvt)>0 and round(e[0],Voronoi.SLVround)>=round(self.VerEvt[0][0],Voronoi.SLVround): warnings.warn(f'WARNING: next step is very near {e} {self.VerEvt[0]}')
 			#self.pop(n) #!!! seems useless
 			if len(e)==5:
 				y,x,count,n,nr=e
@@ -420,7 +488,7 @@ class EventQueue(object):
 		#END_OF_def delMin(self):
 	def insert(self,x,y,n,nr): #simplified again
 		count=next(self.counter)
-		heapq.heappush(self.VerEvt,[y,x,count,n,nr])
+		heapq.heappush(self.VerEvt,[y,x,-count,n,nr]) #???-count
 	#def insert(self,x,y,n,nr,nl=None): #four or five elements #turns out this is useless
 	#	count=next(self.counter)
 	#	if nl is None: heapq.heappush(self.VerEvt,[y,x,count,n,nr])
@@ -604,8 +672,8 @@ class Voronoi(object):
 		Q = T.Q
 		T.p = Q.delMin()
 		while T.p is not None:
-			for k,e in T.RenewSideBoundary():
-				self.Edges[k] = e
+			#for k,e in T.RenewSideBoundary(): #???????
+			#	self.Edges[k] = e
 			if T.p is None: #p is deleted during renewing side boundary edges.
 				pass
 			elif len(T.p)==2: #Site Event
@@ -621,18 +689,32 @@ class Voronoi(object):
 				assert R == T.KL[n+3]
 				#from left to right L l r R
 				#Q.deleteifhas(L)
+				BoundaryUpdated=False
 				i1 = T[L].Intersect(T[l])
-				i2 = T[r].Intersect(T[R])
-				if i1 is not None:
-					if T[L].direct==0: assert round(i1[1],Voronoi.SLVround)==round(T.p[1],Voronoi.SLVround)
-					else:
-						if round(i1[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): print('WARNING: very small step',T.p,i1)
+				if i1 is None or i1[0]<-0.5:
+					if T.p[1]>T.ysweep and L==T.KL[1] and not T[L].isRightOf(-0.5,T.p[1]):
+						k,e=T.RenewLeftBoundary()
+						self.Edges[k] = e
+						BoundaryUpdated=True
+					#else: print(L,T[L])
+				else:
+					if T[L].direct!=0 or T[L].p0[0]+T[L].p1[0]!=2*T[l].p1[0]:
+						if round(i1[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {T.p} {i1}')
 					if Voronoi.debug: print('->V L',i1,T[L],T[l])
 					Q.insert(i1[0],i1[1],L,l)
-				if i2 is not None:
-					if round(i2[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): print('WARNING: very small step',T.p,i2)
+				i2 = T[r].Intersect(T[R])
+				if i2 is None or i2[0]>Voronoi.ImgSizeX-0.5:
+					if T.p[1]>T.ysweep and R==T.KL[-2] and T[R].isRightOf(Voronoi.ImgSizeX-0.5,T.p[1]):
+						k,e = T.RenewRightBoundary()
+						self.Edges[k] = e
+						BoundaryUpdated=True
+					#else: print(R,T[R])
+				else:
+					if round(i2[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {T.p} {i2}')
 					if Voronoi.debug: print('->V R',i2,T[r],T[R])
 					Q.insert(i2[0],i2[1],r,R)
+				if BoundaryUpdated: self.ysweep = T.p[1]
+
 				'''
 				When T[L].direct==0, the SiteEvent leads to a VertexEvent which have the same y and thus needs to be processed immediately.
 				The following 5-elements method is Wrong as it adds an additional pair of SiteEvent edges.
@@ -1293,8 +1375,8 @@ Caveat
 		""")
 		exit()
 	Options={}
-	S_opt='dDAPTSMh'
-	L_opt=['calpvd','calarea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','border=','resolution=','accuracy=','makeimage','help']
+	S_opt='dDAPTSMhs'
+	L_opt=['calpvd','calarea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','border=','resolution=','accuracy=','makeimage','help','silent']
 	opts,args=getopt.getopt(sys.argv[1:],S_opt,L_opt)
 	if len(args)>0:
 		for arg in args:
@@ -1319,6 +1401,8 @@ Caveat
 			Options['makeCVT']=True
 		elif opt == '--caldst' or opt == '-S':
 			Options['caldst']=True
+		elif opt == '--silent' or opt == '-s':
+			warnings.simplefilter('ignore')
 		elif opt == '--makeimage':
 			Options['MakeIntImage']=True
 		elif opt == '--rmedgepoint':
