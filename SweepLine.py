@@ -28,6 +28,7 @@ try: import pyfits as fits
 except: from astropy.io import fits
 import heapq
 import itertools
+from copy import copy
 import time,sys,warnings,os,getopt
 def _ltshowwarning(message, category, filename, lineno, file=None, line=None):
 	if category==UserWarning: print('\033[33mWARNING\033[0m:',message)
@@ -449,7 +450,7 @@ class Voronoi(object):
 	SLVround = 6
 	#if SLVround is low, two points far from each other can be taken as neighbors
 	debug = False
-	debug = True
+	#debug = True
 	def __init__(self,image=None,events=None,**kwargs):
 		#StartTime=time.time()
 		self.FileName = kwargs.pop('FileName','FileName')
@@ -489,10 +490,10 @@ class Voronoi(object):
 				events[:,:2] *= self.scale
 			border=kwargs.get('border',None)
 			if border is None:
-				xlow = np.floor(np.min(events[:,0]))-1
-				ylow = np.floor(np.min(events[:,1]))-1
-				xhigh = np.ceil(np.max(events[:,0]))+1
-				yhigh = np.ceil(np.max(events[:,1]))+1
+				xlow = np.floor(np.min(events[:,0])) #-1
+				ylow = np.floor(np.min(events[:,1])) #-1
+				xhigh = np.ceil(np.max(events[:,0])) #+1
+				yhigh = np.ceil(np.max(events[:,1])) #+1
 			else:
 				xlow = border['xlow']*self.scale
 				ylow = border['ylow']*self.scale
@@ -570,6 +571,8 @@ class Voronoi(object):
 			if type(self.Amap) is dict:
 				for (Px,Py) in self.Amap:
 					self.Wmap[(Px,Py)] = (self.Wmap[(Px,Py)]/self.Amap[(Px,Py)]+[Px,Py])/3.
+				print(list(self.Wmap.values()))
+				print(list(self.Amap.keys()))
 				self.ctdvector=np.array(list(self.Wmap.values()))-np.array(list(self.Amap.keys()))
 		if self.ToCalPVD: self.CalPVD(**kwargs)
 		if self.ToCalAdj: self.CalAdj()
@@ -612,7 +615,7 @@ class Voronoi(object):
 			if type(self.Amap) is dict:
 				print('>> '+self.FileName+'_ctd.reg .dat')
 				np.savetxt(self.FileName+'_ctd.dat',np.array(list(self.Wmap.values())))
-				Ps=np.array(list(self.Amap.keys())) #-[self.OffSetX,self.OffSetY]
+				Ps=np.array(list(self.Amap.keys()))
 				np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
 		if self.ToCum2D:
 				print('>> '+self.FileName+'_cum2d.dat')
@@ -705,6 +708,8 @@ class Voronoi(object):
 		T.pop(-1)
 		T.pop(-2)
 
+		#if 1: d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1 open('a.reg','w').write('image\n') np.savetxt('a.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
+
 		#???
 		for e in self.Edges.values():
 			if e.summit is not None:
@@ -728,6 +733,8 @@ class Voronoi(object):
 				#print(-1,e.base,-0.5, (e.p0[0]**2 + e.p0[0] + e.p0[1]**2 - e.p1[0]**2 - e.p1[1]**2 - e.p1[0])/2/(e.p0[1]-e.p1[1]))
 				e.complete(-0.5, (e.p0[0]**2 + e.p0[0] + e.p0[1]**2 - e.p1[0]**2 - e.p1[1]**2 - e.p1[0])/2/(e.p0[1]-e.p1[1])) #although mostly they cross self.ImgSizeY, there is a low possibility not. So I input the crossing point at Left or Right edge of image, let complete to recalculate the summit
 			self.Edges[l] = T.pop(l)
+
+		#if 1: d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1 open('aa.reg','w').write('image\n') np.savetxt('aa.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
 
 		for e in self.Edges.values():
 			if e.summit is not None:
@@ -763,7 +770,7 @@ class Voronoi(object):
 		assert u1!=v1
 		yb = (u0**2-2*u0*(T.RightLimit)+u1**2-v0**2+2*v0*(T.RightLimit)-v1**2)/2./(u1-v1)
 		T[T.KL[-2]].complete(T.RightLimit,yb)
-		self.Edges[T.KL[-2]] = T[T.KL[-2]]
+		self.Edges[T.KL[-2]] = copy(T[T.KL[-2]])
 		T[-2] = T.pop(T.KL[-2])
 		T.KL.pop(-2)
 		T[-2].p1 = (-2,-2)
@@ -771,14 +778,14 @@ class Voronoi(object):
 		if Voronoi.debug: print('-->',T[-2])
 	#END_OF_def RenewRightBoundary(self,T):
 	def RenewLeftBoundary(self,T):
-		if Voronoi.debug: print(color('EdgeL:',31,1),T[-1],T[T.KL[1]],-0.5,y)
+		if Voronoi.debug: print(color('EdgeL:',31,1),T[-1],T[T.KL[1]],-0.5)
 		assert T[-1].p1==T[T.KL[1]].p0
 		u0,u1 = T[T.KL[1]].p0
 		v0,v1 = T[T.KL[1]].p1
 		assert u1!=v1
 		yb = (u0**2-2*u0*(-0.5)+u1**2-v0**2+2*v0*(-0.5)-v1**2)/2./(u1-v1)
 		T[T.KL[1]].complete(-0.5,yb)
-		self.Edges[T.KL[1]] = T[T.KL[1]]
+		self.Edges[T.KL[1]] = copy(T[T.KL[1]])
 		T[-1] = T.pop(T.KL[1])
 		T.KL.pop(1)
 		T[-1].p0 = (-1,-1)
@@ -1439,12 +1446,15 @@ Caveat
 		vor.saveresults()
 		if Options.get('makeCVT',False):
 			ctd=np.array(list(vor.Wmap.values()))
+			#ctd-=[vor.OffSetX,vor.OffSetY] ????
 			n=1
-			while True:
+			#while True:
+			for n in range(99):
 				Options['FileName']=InputFile.rsplit('.',1)[0]+str(n)
 				vor=Voronoi(events=ctd,**Options)
 				ctd=np.array(list(vor.Wmap.values()))
 				if n%10==0: vor.saveresults()
+				print('Max',np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1))))
 				if np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1)))<0.001: break
 				n+=1
 				vor.saveresults()
