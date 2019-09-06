@@ -527,6 +527,7 @@ class Voronoi(object):
 		Hdr = kwargs.get('Hdr',None)
 		self.OffSetX=0
 		self.OffSetY=0
+		self.scale=1
 		if image is not None: #integer position
 			self.Mode='image'
 			assert events is None
@@ -539,46 +540,56 @@ class Voronoi(object):
 			assert events.shape[1] >= 2
 			if self.ToCalPVD: sys.exit('--calpvd not supported in case of events (as opposed to image) input')
 			if self.ToCalDst: sys.exit('--caldst not supported in case of events (as opposed to image) input')
-			border=kwargs.pop('border',{})
-			if border: print('set image size: %s-%s %s-%s' % (border.get('xlow','**'),border.get('xhigh','**'),border.get('ylow','**'),border.get('yhigh','**')))
 
-			xlow = border.pop('xlow',-0.5)
-			ylow = border.pop('ylow',-0.5)
+			self.scale = 2*np.sqrt(events.shape[0])/(np.max(events[:,:2])-np.min(events[:,:2]))
+			if self.scale<2: self.scale=1
+			else:
+				self.scale=np.round(self.scale,1)
+				print(f'Scale the coordinates by: {self.scale}')
+				events[:,:2] *= self.scale
+			border=kwargs.get('border',None)
+			if border is None:
+				xlow = np.floor(np.min(events[:,0]))-1
+				ylow = np.floor(np.min(events[:,1]))-1
+				xhigh = np.ceil(np.max(events[:,0]))+1
+				yhigh = np.ceil(np.max(events[:,1]))+1
+			else:
+				xlow = border['xlow']*self.scale
+				ylow = border['ylow']*self.scale
+				xhigh = border['xhigh']*self.scale
+				yhigh = border['yhigh']*self.scale
+			print(f'Set image size: {xlow:g}~{xhigh:g} {ylow:g}~{yhigh:g}')
 			self.OffSetX = -0.5-xlow #shift the lower border to -0.5
 			events[:,0] += self.OffSetX
 			self.OffSetY = -0.5-ylow #shift the lower border to -0.5
 			events[:,1] += self.OffSetY
-			xhigh = border.pop('xhigh',int(np.max(events[:,:2])+0.5)+0.5)
-			yhigh = border.pop('yhigh',int(np.max(events[:,:2])+0.5)+0.5)
-			Voronoi.ImgSizeX = int(xhigh+0.5)
-			Voronoi.ImgSizeY = int(yhigh+0.5)
+			Voronoi.ImgSizeX = int(xhigh+self.OffSetX+0.5)+1
+			Voronoi.ImgSizeY = int(yhigh+self.OffSetY+0.5)+1
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>Voronoi.ImgSizeX-0.5 or np.max(events[:,1])>Voronoi.ImgSizeY-0.5:
-				print(color("ERROR: points out of (-0.5~%g, -0.5~%g)" %(xlow,Voronoi.ImgSizeX-0.5,ylow,Voronoi.ImgSizeY-0.5),31,1))
+				print(color(f"ERROR: points out of -0.5~{Voronoi.ImgSizeX-0.5:g}, -0.5~{Voronoi.ImgSizeY-0.5:g}",31,1))
 				exit()
 			if Voronoi.debug: print("OffSet:",self.OffSetX,self.OffSetY)
 			if Voronoi.debug: print("ImgSize:",Voronoi.ImgSizeX,Voronoi.ImgSizeY) 
 
 			self.MakeIntImage=kwargs.pop('MakeIntImage',False)
 			if self.MakeIntImage:
-				if np.min(events[:,:2])<0: sys.exit('ERROR: Negative position')
 				if Voronoi.ImgSizeX>4096 or Voronoi.ImgSizeY>4096:
-					print("The image size exceeds 4096. Do you really want to make such a large image? (y/n)")
+					warnings.warn("The image size exceeds 4096. Do you really want to make such a large image? (y/n)")
 					readyn=input()
 					if readyn!='y': exit()
-				if Voronoi.ImgSizeX<5 or Voronoi.ImgSizeY<5:
-					print("The image size < 5. Do you really want to make such a large image? (y/n)")
-					#readyn=input()
-					readyn='y'
-					if readyn!='y': exit()
+				if Voronoi.ImgSizeX<3 or Voronoi.ImgSizeY<3:
+					warnings.warn("The image size < 3. Do you really want to make such a large image? (y/n)")
 				pmap = np.zeros((int(Voronoi.ImgSizeX),int(Voronoi.ImgSizeY)),dtype='float64')
 				if Voronoi.debug: print("init pmap",pmap.shape)
 				with open(self.FileName+'_points.reg','w') as freg:
 					for x,y in events[:,:2]:
 						pmap[int(x+0.5),int(y+0.5)] += 1
-						print("image;circle(%.2f,%.2f,0.3) # color=red;line(%.2f,%.2f,%d,%d) # color=red" % (y+1,x+1, y+1,x+1, int(y+0.5)+1,int(x+0.5)+1), file=freg)
+						#print("image;circle(%.2f,%.2f,0.3) # color=red;line(%.2f,%.2f,%d,%d) # color=red" % (y+1,x+1, y+1,x+1, int(y+0.5)+1,int(x+0.5)+1), file=freg)
+						print(f"image;circle({y+1:.2f},{x+1:.2f},0.3) # color=red", file=freg)
 				if Hdr is None: Hdr=fits.Header()
 				Hdr.update({'OffSetX':self.OffSetX})
 				Hdr.update({'OffSetY':self.OffSetY})
+				Hdr.update({'Scale':self.scale})
 				fits.writeto(self.FileName+'_image.fits',pmap,Hdr,overwrite=True)
 				print('>> '+self.FileName+'_image.fits')
 				print('>> '+self.FileName+'_points.reg')
@@ -624,7 +635,7 @@ class Voronoi(object):
 
 	def saveresults(self):
 		if self.Mode=='image' or self.MakeIntImage:
-			d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
+			d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1
 			open(self.FileName+'.reg','w').write('image\n')
 			np.savetxt(self.FileName+'.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
 			print('>> '+self.FileName+'.reg')
