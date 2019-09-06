@@ -449,7 +449,7 @@ class Voronoi(object):
 	SLVround = 6
 	#if SLVround is low, two points far from each other can be taken as neighbors
 	debug = False
-	#debug = True
+	debug = True
 	def __init__(self,image=None,events=None,**kwargs):
 		#StartTime=time.time()
 		self.FileName = kwargs.pop('FileName','FileName')
@@ -612,7 +612,7 @@ class Voronoi(object):
 			if type(self.Amap) is dict:
 				print('>> '+self.FileName+'_ctd.reg .dat')
 				np.savetxt(self.FileName+'_ctd.dat',np.array(list(self.Wmap.values())))
-				Ps=np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY]
+				Ps=np.array(list(self.Amap.keys())) #-[self.OffSetX,self.OffSetY]
 				np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
 		if self.ToCum2D:
 				print('>> '+self.FileName+'_cum2d.dat')
@@ -1447,7 +1447,7 @@ Caveat
 				if n%10==0: vor.saveresults()
 				if np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1)))<0.001: break
 				n+=1
-			vor.saveresults()
+				vor.saveresults()
 
 #import profile
 if __name__ == '__main__':
