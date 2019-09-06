@@ -528,6 +528,8 @@ class Voronoi(object):
 		self.OffSetX=0
 		self.OffSetY=0
 		self.scale=1
+		self.Leftlimit=None
+		self.Rightlimit=None
 		if image is not None: #integer position
 			self.Mode='image'
 			assert events is None
@@ -785,10 +787,9 @@ class Voronoi(object):
 				#print(1,e.base,Voronoi.ImgSizeX-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[0]-e.p0[0])*(Voronoi.ImgSizeX-0.5))/2/(e.p0[1]-e.p1[1]))
 				e.complete(Voronoi.ImgSizeX-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2+2*(e.p1[0]-e.p0[0])*(Voronoi.ImgSizeX-0.5))/2/(e.p0[1]-e.p1[1]))
 			elif e.direct==-1:
-				#print(-1,e.base,-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2-0.25*(e.p1[0]-e.p0[0]))/2/(e.p0[1]-e.p1[1]))
-				e.complete(-0.5, (e.p0[0]**2+e.p0[1]**2-e.p1[0]**2-e.p1[1]**2-0.25*(e.p1[0]-e.p0[0]))/2/(e.p0[1]-e.p1[1])) #although mostly they cross Voronoi.ImgSizeY, there is a low possibility not. So I input the crossing point at Left or Right edge of image, let complete to recalculate the summit
+				#print(-1,e.base,-0.5, (e.p0[0]**2 + e.p0[0] + e.p0[1]**2 - e.p1[0]**2 - e.p1[1]**2 - e.p1[0])/2/(e.p0[1]-e.p1[1]))
+				e.complete(-0.5, (e.p0[0]**2 + e.p0[0] + e.p0[1]**2 - e.p1[0]**2 - e.p1[1]**2 - e.p1[0])/2/(e.p0[1]-e.p1[1])) #although mostly they cross Voronoi.ImgSizeY, there is a low possibility not. So I input the crossing point at Left or Right edge of image, let complete to recalculate the summit
 			self.Edges[l] = T.pop(l)
-
 
 		for e in self.Edges.values():
 			if e.summit is not None:
