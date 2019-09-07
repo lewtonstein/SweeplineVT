@@ -26,7 +26,7 @@
 import numpy as np
 try: import pyfits as fits
 except: from astropy.io import fits
-import heapq
+import heapq,json
 import itertools
 from copy import copy
 import time,sys,warnings,os,getopt
@@ -453,7 +453,7 @@ class Voronoi(object):
 	#debug = True
 	def __init__(self,image=None,events=None,**kwargs):
 		#StartTime=time.time()
-		self.FileName = kwargs.pop('FileName','FileName')
+		self.FileName = kwargs.pop('FileName','tmp')
 		print(color('Voronoi Construction: '+self.FileName,34,1))
 		self.ToCalArea = kwargs.pop('calarea',False)
 		self.ToCalPVD = kwargs.pop('calpvd',False)
@@ -482,30 +482,30 @@ class Voronoi(object):
 			if self.ToCalPVD: sys.exit('--calpvd not supported in case of events (as opposed to image) input')
 			if self.ToCalDst: sys.exit('--caldst not supported in case of events (as opposed to image) input')
 
-			self.scale = 2*np.sqrt(events.shape[0])/(np.max(events[:,:2])-np.min(events[:,:2]))
-			if self.scale<2: self.scale=1
-			else:
-				self.scale=np.round(self.scale,1)
-				print(f'Scale the coordinates by: {self.scale}')
-				events[:,:2] *= self.scale
 			border=kwargs.get('border',None)
 			if border is None:
-				xlow = np.floor(np.min(events[:,0])) #-1
-				ylow = np.floor(np.min(events[:,1])) #-1
-				xhigh = np.ceil(np.max(events[:,0])) #+1
-				yhigh = np.ceil(np.max(events[:,1])) #+1
+				self.scale = 2*np.sqrt(events.shape[0])/(np.max(events[:,:2])-np.min(events[:,:2]))
+				if self.scale<2: self.scale=1
+				else:
+					self.scale=np.round(self.scale,1)
+					print(f'Scale the coordinates by: {self.scale}')
+					events[:,:2] *= self.scale
+				xlow = np.floor(np.min(events[:,0]))-1
+				ylow = np.floor(np.min(events[:,1]))-1
+				xhigh = np.ceil(np.max(events[:,0]))+1
+				yhigh = np.ceil(np.max(events[:,1]))+1
 			else:
-				xlow = border['xlow']*self.scale
-				ylow = border['ylow']*self.scale
-				xhigh = border['xhigh']*self.scale
-				yhigh = border['yhigh']*self.scale
-			print(f'Set image size: {xlow:g}~{xhigh:g} {ylow:g}~{yhigh:g}')
+				xlow = border['xlow']
+				ylow = border['ylow']
+				xhigh = border['xhigh']
+				yhigh = border['yhigh']
+				#print(f'Set image size: {xlow:g}~{xhigh:g} {ylow:g}~{yhigh:g}')
 			self.OffSetX = -0.5-xlow #shift the lower border to -0.5
 			events[:,0] += self.OffSetX
 			self.OffSetY = -0.5-ylow #shift the lower border to -0.5
 			events[:,1] += self.OffSetY
-			self.ImgSizeX = int(xhigh+self.OffSetX+0.5)+1
-			self.ImgSizeY = int(yhigh+self.OffSetY+0.5)+1
+			self.ImgSizeX = int(xhigh+self.OffSetX+0.5) #+1
+			self.ImgSizeY = int(yhigh+self.OffSetY+0.5) #+1
 			self.RightLimit=self.ImgSizeX-0.5
 			self.TopLimit=self.ImgSizeY-0.5
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
@@ -571,8 +571,7 @@ class Voronoi(object):
 			if type(self.Amap) is dict:
 				for (Px,Py) in self.Amap:
 					self.Wmap[(Px,Py)] = (self.Wmap[(Px,Py)]/self.Amap[(Px,Py)]+[Px,Py])/3.
-				print(list(self.Wmap.values()))
-				print(list(self.Amap.keys()))
+				#print(list(self.Wmap.values())) print(list(self.Amap.keys()))
 				self.ctdvector=np.array(list(self.Wmap.values()))-np.array(list(self.Amap.keys()))
 		if self.ToCalPVD: self.CalPVD(**kwargs)
 		if self.ToCalAdj: self.CalAdj()
@@ -590,8 +589,11 @@ class Voronoi(object):
 				np.savetxt(self.FileName+'_Delaunay.reg',d,fmt="line(%g,%g,%g,%g) # tag={%.3f,%.3f,%.3f,%.3f}")
 				print('>> '+self.FileName+'_Delaunay.reg')
 		if self.Mode=='event':
-			np.savetxt(self.FileName+'_Voronoi.dat',np.array([[e.base[0],e.base[1],e.summit[0],e.summit[1],e.p0[0],e.p0[1],e.p1[0],e.p1[1]] for e in self.Edges.values() if e.summit is not None])-np.array([self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY]),fmt="%f")
-			print('>> '+self.FileName+'_Voronoi.dat')
+			with open(self.FileName+'_VT.dat','w') as fout:
+				print('#'+json.dumps({'xlow':-0.5-self.OffSetX,'ylow':-0.5-self.OffSetY,'xhigh':self.RightLimit-self.OffSetX,'yhigh':self.TopLimit-self.OffSetY,'scale':self.scale}),file=fout)
+				d=np.array([[e.base[0],e.base[1],e.summit[0],e.summit[1],e.p0[0],e.p0[1],e.p1[0],e.p1[1]] for e in self.Edges.values() if e.summit is not None])-[self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY]
+				np.savetxt(fout,np.hstack((np.arange(1,len(d)+1).reshape(len(d),1),d)),fmt="%d	%.9f %.9f %.9f %.9f	%.9f %.9f %.9f %.9f")
+				print('>>',fout.name)
 		if self.ToCalDst: #image mode, not events mode
 			assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
 			assert np.all(self.pmap>0) #self.CalPVD done
@@ -604,7 +606,7 @@ class Voronoi(object):
 		if self.ToCalPVD:
 			print('>> '+self.FileName+'_pvd.fits')
 			fits.writeto(self.FileName+'_pvd.fits',self.pmap,Hdr,overwrite=True)
-		if self.ToCalArea:
+		if self.ToCalArea and not self.ToCalCtd:
 			if type(self.Amap) is dict:
 				print('>> '+self.FileName+'_area.dat')
 				np.savetxt(self.FileName+'_area.dat',np.hstack((np.array(list(self.Amap.values())).reshape(len(self.Amap),1),np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
@@ -613,10 +615,12 @@ class Voronoi(object):
 				fits.writeto(self.FileName+'_area.fits',self.Amap,Hdr,overwrite=True)
 		if self.ToCalCtd:
 			if type(self.Amap) is dict:
-				print('>> '+self.FileName+'_ctd.reg .dat')
-				np.savetxt(self.FileName+'_ctd.dat',np.array(list(self.Wmap.values())))
+				print('>> '+self.FileName+'_ctd.dat')
+				np.savetxt(self.FileName+'_ctd.dat',np.hstack((np.arange(1,len(self.Wmap)+1).reshape(len(self.Wmap),1),np.array(list(self.Wmap.values()))-[self.OffSetX,self.OffSetY],np.array(list(self.Amap.values())).reshape(len(self.Amap),1))),fmt='%d	%.9g	%.9g	%.9g')
 				Ps=np.array(list(self.Amap.keys()))
-				np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
+				if self.Mode=='image' or self.MakeIntImage:
+					np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
+					print('>> '+self.FileName+'_ctd.reg')
 		if self.ToCum2D:
 				print('>> '+self.FileName+'_cum2d.dat')
 				np.savetxt(self.FileName+'_cum2d.dat',np.hstack((np.array(list(self.CumWmap.values())).reshape(len(self.CumWmap),1),np.array(list(self.CumWmap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
@@ -1372,6 +1376,10 @@ Caveat
 				InputFile=arg
 				sys.argv.remove(arg)
 				break
+			elif arg.isdigit():
+				CVTNumber=int(arg)
+				sys.argv.remove(arg)
+				break
 		opts,args=getopt.getopt(sys.argv[1:],S_opt,L_opt)
 	for opt,arg in opts:
 		if opt == '--calpvd' or opt == '-P':
@@ -1434,30 +1442,41 @@ Caveat
 	if len(args)>0: sys.exit("I don't understand"+str(args))
 	if 'InputFile' in locals():
 		Options['FileName']=InputFile.rsplit('.',1)[0]
-	else:
-		print("Please specify one image!\n")
-		usage()
-
-	if len(InputFile.rsplit('.',1))>1 and InputFile.rsplit('.',1)[1] == 'fits':
-		Options['Hdr']=fits.getheader(InputFile)
-		vor=Voronoi(image=fits.getdata(InputFile),**Options)
-	else: #a file which store the coordinates of points in the first two columns
-		vor=Voronoi(events=np.loadtxt(InputFile),**Options)
-		vor.saveresults()
+		if len(InputFile.rsplit('.',1))>1 and InputFile.rsplit('.',1)[1] == 'fits':
+			data,hdr=fits.getdata(InputFile,header=True)
+			Options['Hdr']=hdr
+			vor=Voronoi(imag=data,**Options)
+		else: #a file which store the coordinates of points in the first two columns
+			data=np.loadtxt(InputFile)
+			vor=Voronoi(events=data,**Options)
+			CVTNumber=len(data)
+	elif 'CVTNumber' in locals():
 		if Options.get('makeCVT',False):
+			data=np.random.random(size=(CVTNumber,2))*[border['xhigh']-border['xlow'],border['yhigh']-border['ylow']]+[border['xlow'],border['ylow']]
+			vor=Voronoi(events=data,**Options)
+		else: sys.exit('A number is accepted only in makeCVT mode')
+	else:
+		sys.exit("Please input an image, or a list of points, or a number!\n")
+
+	if not Options.get('makeCVT',False):
+		vor.saveresults()
+	else:
+		ctd=np.array(list(vor.Wmap.values()))
+		border={'xlow':-0.5,'ylow':-0.5,'xhigh':vor.RightLimit,'yhigh':vor.TopLimit}
+		scale=vor.scale
+		MaxIteration=10
+		for n in range(MaxIteration):
+			Options['FileName']='tmp'+str(n)
+			Options['border']=border
+			vor=Voronoi(events=ctd,**Options)
 			ctd=np.array(list(vor.Wmap.values()))
-			#ctd-=[vor.OffSetX,vor.OffSetY] ????
-			n=1
-			#while True:
-			for n in range(99):
-				Options['FileName']=InputFile.rsplit('.',1)[0]+str(n)
-				vor=Voronoi(events=ctd,**Options)
-				ctd=np.array(list(vor.Wmap.values()))
-				if n%10==0: vor.saveresults()
-				print('Max',np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1))))
-				if np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1)))<0.001: break
-				n+=1
-				vor.saveresults()
+			#if n%10==0: vor.saveresults()
+			#print('Max',np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1))))
+			if np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1)))<0.001: break
+		if n==MaxIteration-1: warnings.warn(f'Limited to {MaxIteration} iteration. Not yet optimized')
+		Options['FileName']='CVT'+str(CVTNumber)
+		vor=Voronoi(events=ctd,**Options)
+		vor.saveresults()
 
 #import profile
 if __name__ == '__main__':
