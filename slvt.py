@@ -7,18 +7,9 @@
 import numpy as np
 try: import pyfits as fits
 except: from astropy.io import fits
-import heapq,json
-import itertools
-from copy import copy
+import json
 from SweepLineVT import Voronoi
 import time,sys,warnings,os,getopt
-def _ltshowwarning(message, category, filename, lineno, file=None, line=None):
-	if category==UserWarning: print('\033[33mWARNING\033[0m:',message)
-	else:
-		msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
-		warnings._showwarnmsg_impl(msg)
-warnings.showwarning=_ltshowwarning
-color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;0m"
 
 def main():
 	def usage():
@@ -160,9 +151,9 @@ Caveat
 		ctd=np.array(list(vor.Wmap.values()))
 		border={'xlow':-0.5,'ylow':-0.5,'xhigh':vor.RightLimit,'yhigh':vor.TopLimit}
 		scale=vor.scale
-		MaxIteration=10
+		MaxIteration=1000
 		for n in range(MaxIteration):
-			Options['FileName']='tmp'+str(n)
+			Options['FileName']='iter'+str(n)
 			Options['border']=border
 			vor=Voronoi(events=ctd,**Options)
 			ctd=np.array(list(vor.Wmap.values()))
