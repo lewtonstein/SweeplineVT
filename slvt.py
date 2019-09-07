@@ -10,8 +10,8 @@ except: from astropy.io import fits
 import heapq,json
 import itertools
 from copy import copy
-import time,sys,warnings,os,getopt
 from SweepLineVT import Voronoi
+import time,sys,warnings,os,getopt
 def _ltshowwarning(message, category, filename, lineno, file=None, line=None):
 	if category==UserWarning: print('\033[33mWARNING\033[0m:',message)
 	else:
@@ -147,10 +147,10 @@ Caveat
 			vor=Voronoi(events=data,**Options)
 			CVTNumber=len(data)
 	elif 'CVTNumber' in locals():
-		if Options.get('makeCVT',False):
+		if Options.get('makeCVT',False) and Options.get('border',False):
 			data=np.random.random(size=(CVTNumber,2))*[border['xhigh']-border['xlow'],border['yhigh']-border['ylow']]+[border['xlow'],border['ylow']]
 			vor=Voronoi(events=data,**Options)
-		else: sys.exit('A number is accepted only in makeCVT mode')
+		else: sys.exit('A number is accepted only in makeCVT mode with given border')
 	else:
 		sys.exit("Please input an image, or a list of points, or a number!\n")
 
