@@ -471,25 +471,34 @@ class Voronoi(object):
 				ylow = np.floor(np.min(events[:,1]))-1
 				xhigh = np.ceil(np.max(events[:,0]))+1
 				yhigh = np.ceil(np.max(events[:,1]))+1
+				self.OffSetX = -0.5-xlow #shift the lower border to -0.5
+				events[:,0] += self.OffSetX
+				xhigh += self.OffSetX
+				self.OffSetY = -0.5-ylow #shift the lower border to -0.5
+				events[:,1] += self.OffSetY
+				yhigh += self.OffSetY
+				self.ImgSizeX = int(xhigh+0.5)
+				self.ImgSizeY = int(yhigh+0.5)
+				self.RightLimit=self.ImgSizeX-0.5
+				self.TopLimit=self.ImgSizeY-0.5
+				#https://docs.python.org/3/tutorial/floatingpoint.html
+				#Some float numbers do not have exact representations in binary floating point, e.g., float.hex(0.1): '0x1.999999999999ap-4' 0.1!=1-0.9. Luckily int-0.5 seems OK, float.hex(0.5): '0x1.0000000000000p-1'.
 			else:
 				xlow = border['xlow']
 				ylow = border['ylow']
 				xhigh = border['xhigh']
 				yhigh = border['yhigh']
+				self.OffSetX = -0.5-xlow #shift the lower border to -0.5
+				events[:,0] += self.OffSetX
+				xhigh += self.OffSetX
+				self.OffSetY = -0.5-ylow #shift the lower border to -0.5
+				events[:,1] += self.OffSetY
+				yhigh += self.OffSetY
+				self.ImgSizeX = int(xhigh)+1
+				self.ImgSizeY = int(yhigh)+1
+				self.RightLimit = xhigh
+				self.TopLimit = yhigh
 				#print(f'Set image size: {xlow:g}~{xhigh:g} {ylow:g}~{yhigh:g}')
-			self.OffSetX = -0.5-xlow #shift the lower border to -0.5
-			events[:,0] += self.OffSetX
-			xhigh += self.OffSetX
-			self.OffSetY = -0.5-ylow #shift the lower border to -0.5
-			events[:,1] += self.OffSetY
-			yhigh += self.OffSetY
-			self.ImgSizeX = int(xhigh+0.5)
-			self.ImgSizeY = int(yhigh+0.5)
-			self.RightLimit=self.ImgSizeX-0.5
-			self.TopLimit=self.ImgSizeY-0.5
-			#https://docs.python.org/3/tutorial/floatingpoint.html
-			#Some float numbers do not have exact representations in binary floating point, e.g., float.hex(0.1): '0x1.999999999999ap-4' 0.1!=1-0.9. Luckily int-0.5 seems OK, float.hex(0.5): '0x1.0000000000000p-1'.
-			#It might be OK to take an arbitary float number as the upper limit, as there is not any operation on it beside "=="". But I don't.
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
 				exit()
