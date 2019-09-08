@@ -1,4 +1,4 @@
-# SweepLineVT -- Voronoi Tessellation using sweep-line algorithm
+# SweeplineVT -- Voronoi Tessellation using sweep-line algorithm
 ## Description
 * Voronoi Tessellation on the basis of the sweep-line algorithm developed by Steven Fortune in 1986
 * Make centroidal Voronoi Tessellation (CVT)
@@ -25,7 +25,7 @@ pl_VT.py example_VT.dat example_ctd.dat -s
 
 The red points are the Voronoi sites (input points from "example.dat"). The green lines connect each sites with the corresponding cell centroid.
 
-![example](./SweepLineVT/doc/example_VT.png)
+![example](./SweeplineVT/doc/example_VT.png)
 
 * In the output example_VT.dat, each item corresponds to one cell edge. The 9 columns are:
  + 1: index of edge
@@ -47,4 +47,4 @@ pl_VT.py CVT14_VT.dat -s
 "-s" of slvt.py means "silent". "-s" of pl_VT.py means "step".
 
 * One possible result you might see:   
-![CVT14](./SweepLineVT/doc/CVT14_VT.png)
+![CVT14](./SweeplineVT/doc/CVT14_VT.png)

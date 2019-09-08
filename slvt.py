@@ -8,7 +8,7 @@ import numpy as np
 try: import pyfits as fits
 except: from astropy.io import fits
 import json
-from SweepLineVT import Voronoi
+from SweeplineVT import Voronoi
 import time,sys,warnings,os,getopt
 
 def main():
