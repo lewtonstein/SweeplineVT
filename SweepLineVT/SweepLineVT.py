@@ -574,7 +574,7 @@ class Voronoi(object):
 			open(self.FileName+'.reg','w').write('image\n')
 			np.savetxt(self.FileName+'.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
 			print('>> '+self.FileName+'.reg')
-			if self.ToCalDel:
+			if self.ToCalDel and False:
 				d = np.array([[e.p0[1],e.p0[0],e.p1[1],e.p1[0],e.base[1],e.base[0],e.summit[1],e.summit[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
 				open(self.FileName+'_Delaunay.reg','w').write('image\n')
 				np.savetxt(self.FileName+'_Delaunay.reg',d,fmt="line(%g,%g,%g,%g) # tag={%.3f,%.3f,%.3f,%.3f}")
