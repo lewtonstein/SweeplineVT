@@ -35,4 +35,5 @@ pl_VT.py CVT14_VT.dat -s
 
 "-s" of slvt.py means "silent". "-s" of pl_VT.py means "step".
 
+* One possible result you might see:   
 ![CVT14](./SweepLineVT/doc/CVT14_VT.png)
