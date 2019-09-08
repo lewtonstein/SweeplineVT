@@ -12,46 +12,51 @@ from SweepLineVT import Voronoi
 import time,sys,warnings,os,getopt
 
 def main():
-	def usage():
-		print("""SweepLine.py File [options]
+	#	Notice the input coordinate is taken as in Python (image: 0~x-1,0~y-1; event: -0.5~x-0.5,-0.5~y-0.5)
+	#	rather than the ds9 style (image: 1~y,1~x; event: 0.5~y+0.5,0.5~x+0.5).
+	#-P,--calpvd		Calculate Pixelated Voronoi Diagram, only in case of image input.
+	#-T,--calTriangle	Divide the space into smallest triangles.
+	#-S,--caldst		Calculate Density image, only in case of image input.
+	#-D,--calDelaunay	Make Delaunay diagram.
+	#--resolution N		Set position resolution to the Nth decimal place.
+	#			Only in case of events input, where high resolution can make problems.
+	#--makeimage		Make an image from events list
+	#			The image size rests with the max coordinate.
+	#			Rescale the input positions by yourself.
+	#			Use log scale if necessary.
+	#			No need to reset border with --border, unless you want to enlarge the image.
+#Caveat
+#	PVD (Pixelated Voronoi Diagram) is not uniquely defined. There is uncertainty in some pixels.
+#
+#	In the SAOds9 reg file:
+#		X_ds9, Y_ds9 = Y_py+1, X_py+1
+#		the image border (range of the Voronoi diagram) is -0.5~size-0.5 for X_py, Y_py, and 0.5~size+0.5 for X_ds9, Y_ds9.
+#	The way to reload the Voronoi diagram reg file given by this program is:
+#		np.fromregex('xxx.reg',"line\(([0-9.]*),([0-9.]*),([0-9.]*),([0-9.]*)\) # tag={([0-9.]*),([0-9.]*),([0-9.]*),([0-9.]*)}\\n",np.float32)
 
-INPUT
-	The input File can be image
-		If the file has an ".fits" suffix.
-	OR events
+	__doc__="""
+Mode 1:
+	slvt.py File [options]
+Mode 2:
+	slvt.py Number --makeCVT --border x1,x2,y1,y2
+
+The input File can be:
+	an image
+		If the file has a ".fits" suffix.
+	OR a list of coordinates
 		It should be an ASCII file containing the point coordinates in its first two columns.
-		Notice the coordinate is taken as in Python (image: 0~x-1,0~y-1; event: -0.5~x-0.5,-0.5~y-0.5)
-		rather than the ds9 style (image: 1~y,1~x; event: 0.5~y+0.5,0.5~x+0.5).
 
 OPTIONS
-	-A,--calarea		Calculate cell Areas.
-	-C,--calCentroid	Calculate cell centroid.
-	-P,--calpvd		Calculate Pixelated Voronoi Diagram, only in case of image input.
-	-S,--caldst		Calculate Density image, only in case of image input.
-	-D,--calDelaunay	Make Delaunay diagram.
-	-T,--calTriangle	Divide the space into smallest triangles.
-	-M,--makeCVT	Make Centroidal Voronoi Tessellation pattern
-	--border x1,x2,y1,y2	Set image border in case of events input. x1,y1,x2,y2 can be empty.
-                                e.g. -0.5,1023.5,-0.5,1023.5 --> a 1024x1024 image
-	--resolution N		Set position resolution to the Nth decimal place.
-				Only in case of events input, where high resolution can make problems.
-	--makeimage		Make an image from events list
-				The image size rests with the max coordinate.
-				Rescale the input positions by yourself.
-				Use log scale if necessary.
-				No need to reset border with --border, unless you want to enlarge the image.
+	-A,--calarea		Calculate cell Areas
+	-C,--calCentroid	Calculate cell centroid
+	-M,--makeCVT	Make Centroidal Voronoi Tessellation
+	--border x1,x2,y1,y2	Set image border in case of events input.
+                                e.g. -0.5,1023.5,-0.5,1023.5 --> a 1024x1024 image to view in ds9
 	--rmedgepoint		Remove edge points in Area map
 	-h/--help		Help
-
-Caveat
-	PVD (Pixelated Voronoi Diagram) is not uniquely defined. There is uncertainty in some pixels.
-
-	In the SAOds9 reg file:
-		X_ds9, Y_ds9 = Y_py+1, X_py+1
-		the image border (range of the Voronoi diagram) is -0.5~size-0.5 for X_py, Y_py, and 0.5~size+0.5 for X_ds9, Y_ds9.
-	The way to reload the Voronoi diagram reg file given by this program is:
-		np.fromregex('xxx.reg',"line\(([0-9.]*),([0-9.]*),([0-9.]*),([0-9.]*)\) # tag={([0-9.]*),([0-9.]*),([0-9.]*),([0-9.]*)}\\n",np.float32)
-		""")
+		"""
+	def usage():
+		print(__doc__)
 		exit()
 	Options={}
 	S_opt='dDAPTSMhs'

@@ -27,6 +27,17 @@ The red points are the Voronoi sites (input points from "example.dat"). The gree
 
 ![example](./SweepLineVT/doc/example_VT.png)
 
+* In the output example_VT.dat, each item corresponds to one cell edge. The 9 columns are:
+ + 1: index of edge
+ + 2-3 and 3-4: coordinates of the two Voronoi vertices (nodes) of the edge
+ + 5-6 and 7-8: coordiantes of the two nearest Voronoi sites (The Delaunay diagram)
+
+* In the output example_ctd.dat, each item corresponds to one cell. The 6 columns are:
+ + 1: index of cell / site.
+ + 2-3: centroid of the cell
+ + 4-5: Voronoi site of the cell
+ + 6: area of the cell
+
 ### Make centroidal Voronoi Tessellation (CVT) of 14 points in 0<x<7, 0<y<5.
 ```
 slvt.py --makeCVT 14 --border 0,7,0,5 -s

@@ -3,6 +3,12 @@ import os,sys
 import numpy as np
 import pylab as pl
 import json
+__doc__="""
+Input the *_VT.dat file from slvt.py and optionally:
+	the *_ctd.dat file from slvt.py,
+	or "-s", which means plotting step by step.
+"""
+
 if '-s' in sys.argv:
 	sys.argv.remove('-s')
 	Step=True
