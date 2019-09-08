@@ -27,7 +27,7 @@ The red points are the Voronoi sites (input points from "example.dat"). The gree
 
 ![example](./SweepLineVT/doc/example_VT.png)
 
-### Make centroidal Voronoi Tessellation (CVT) of 14 points in 0<x<6,0<y<4.
+### Make centroidal Voronoi Tessellation (CVT) of 14 points in 0<x<7, 0<y<5.
 ```
 slvt.py --makeCVT 14 --border 0,7,0,5 -s
 pl_VT.py CVT14_VT.dat -s
@@ -35,4 +35,5 @@ pl_VT.py CVT14_VT.dat -s
 
 "-s" of slvt.py means "silent". "-s" of pl_VT.py means "step".
 
+* One possible result you might see:   
 ![CVT14](./SweepLineVT/doc/CVT14_VT.png)
