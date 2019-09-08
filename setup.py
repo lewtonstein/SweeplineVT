@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="SweeplineVT",
-    version="0.0.2",
+    version="0.0.4",
     author="Teng Liu",
     author_email="lewtonstein@gmail.com",
     description="Voronoi Tessellation using Sweep-line algorithm",
@@ -22,8 +22,6 @@ setuptools.setup(
 	install_requires=[
 		"numpy",
 		"astropy",
-		"matplotlib",
-		"heapq",
-		"json"],
+		"matplotlib"],
     python_requires='>=3.6',
 )

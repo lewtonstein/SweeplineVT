@@ -2,6 +2,10 @@
 
 [SweeplineVT github](https://github.com/lewtonstein/SweepLine)
 
+```
+pip install SweeplineVT
+```
+
 ## Description
 * Voronoi Tessellation on the basis of the sweep-line algorithm developed by Steven Fortune in 1986
 * Make centroidal Voronoi Tessellation (CVT)
