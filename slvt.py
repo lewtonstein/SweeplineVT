@@ -141,6 +141,8 @@ Caveat
 		if Options.get('makeCVT',False) and Options.get('border',False):
 			data=np.random.random(size=(CVTNumber,2))*[border['xhigh']-border['xlow'],border['yhigh']-border['ylow']]+[border['xlow'],border['ylow']]
 			vor=Voronoi(events=data,**Options)
+			assert vor.RightLimit+0.5==border['xhigh']-border['xlow'] \
+			and vor.TopLimit+0.5==border['yhigh']-border['ylow']
 		else: sys.exit('A number is accepted only in makeCVT mode with given border')
 	else:
 		sys.exit("Please input an image, or a list of points, or a number!\n")
@@ -149,9 +151,11 @@ Caveat
 		vor.saveresults()
 	else:
 		ctd=np.array(list(vor.Wmap.values()))
+		xoff,yoff=vor.OffSetX,vor.OffSetY
 		border={'xlow':-0.5,'ylow':-0.5,'xhigh':vor.RightLimit,'yhigh':vor.TopLimit}
 		scale=vor.scale
 		MaxIteration=1000
+		MaxSep=0.0001
 		for n in range(MaxIteration):
 			Options['FileName']='iter'+str(n)
 			Options['border']=border
@@ -159,10 +163,12 @@ Caveat
 			ctd=np.array(list(vor.Wmap.values()))
 			#if n%10==0: vor.saveresults()
 			#print('Max',np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1))))
-			if np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1)))<0.001: break
+			if np.max(np.sqrt(np.sum(vor.ctdvector**2,axis=1)))<MaxSep: break
 		if n==MaxIteration-1: warnings.warn(f'Limited to {MaxIteration} iteration. Not yet optimized')
 		Options['FileName']='CVT'+str(CVTNumber)
 		vor=Voronoi(events=ctd,**Options)
+		vor.OffSetX=xoff
+		vor.OffSetY=yoff
 		vor.saveresults()
 
 #import profile

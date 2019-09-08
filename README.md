@@ -4,7 +4,7 @@
 * Make centroidal Voronoi Tessellation (CVT)
 * Make Delaunay triangulation
 * Take accurate positions of points with no need of pixelation / binning.
-* Confine Voronoi diagram to specified rectangular region
+* Confine Voronoi diagram to a rectangular region
 ## Examples
 ### Make Voronoi Tessellation for a list of points
 * The content of "example.dat"
@@ -29,7 +29,7 @@ The red points are the Voronoi sites (input points from "example.dat"). The gree
 
 ### Make centroidal Voronoi Tessellation (CVT) of 14 points in 0<x<6,0<y<4.
 ```
-slvt.py --makeCVT 14 --border 0,6,0,4 -s
+slvt.py --makeCVT 14 --border 0,7,0,5 -s
 pl_VT.py CVT14_VT.dat -s
 ```
 

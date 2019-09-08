@@ -169,7 +169,6 @@ class HalfEdgeM(object):
 				if not (-0.5<=yb<=self.TopLimit and -0.5<=xb<=self.RightLimit): print('What',xb,yb,xs,ys)
 			self.summit = xs,ys
 	#END_OF_def complete(self,xs,ys,echo=False):
-	#def line(self,x,y): xb,yb = self.base if yb<=-0.5 and y<=-0.5 or yb>=self.TopLimit and y>=self.TopLimit: return "" if y>-0.5 and yb<-0.5: #for the edge with (x1,y1) and (x2,y2) on its two sides #find the point (x,0) which is equi-distance to the two points x1,y1 = self.p0 x2,y2 = self.p1 xb = (x2**2 + (y2+0.5)**2 - x1**2 - (y1+0.5)**2) /2. /(x2-x1) yb = -0.5 if yb<self.TopLimit and y>self.TopLimit: x1,y1 = self.p0 x2,y2 = self.p1 x = (x2**2 + (y2+0.5-Voronoi.ImgSizeY)**2 - x1**2 - (y1+0.5-Voronoi.ImgSizeY)**2) /2. /(x2-x1) y = self.TopLimit if y<-0.5 and yb>-0.5: x1,y1 = self.p0 x2,y2 = self.p1 x = (x2**2 + (y2+0.5)**2 - x1**2 - (y1+0.5)**2) /2. /(x2-x1) y = -0.5 return "line(%.3f,%.3f,%.3f,%.3f) # line=0 0 tag={%d,%d-%d,%d-%d} font=\"helvetica 1 normal roman\"" % (yb+1,xb+1,y+1,x+1,self.p0[0],self.p0[1],self.p1[0],self.p1[1],self.direct)
 
 class SweepTable(dict):
 	#a dict of half edges
@@ -480,12 +479,15 @@ class Voronoi(object):
 				#print(f'Set image size: {xlow:g}~{xhigh:g} {ylow:g}~{yhigh:g}')
 			self.OffSetX = -0.5-xlow #shift the lower border to -0.5
 			events[:,0] += self.OffSetX
+			xhigh += self.OffSetX
 			self.OffSetY = -0.5-ylow #shift the lower border to -0.5
 			events[:,1] += self.OffSetY
-			self.ImgSizeX = int(xhigh+self.OffSetX+0.5)
-			self.ImgSizeY = int(yhigh+self.OffSetY+0.5)
+			yhigh += self.OffSetY
+			self.ImgSizeX = int(xhigh+0.5)
+			self.ImgSizeY = int(yhigh+0.5)
 			self.RightLimit=self.ImgSizeX-0.5
 			self.TopLimit=self.ImgSizeY-0.5
+			#print(xhigh,self.RightLimit,yhigh,self.TopLimit)
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
 				exit()
