@@ -487,7 +487,9 @@ class Voronoi(object):
 			self.ImgSizeY = int(yhigh+0.5)
 			self.RightLimit=self.ImgSizeX-0.5
 			self.TopLimit=self.ImgSizeY-0.5
-			#print(xhigh,self.RightLimit,yhigh,self.TopLimit)
+			#https://docs.python.org/3/tutorial/floatingpoint.html
+			#Some float numbers do not have exact representations in binary floating point, e.g., float.hex(0.1): '0x1.999999999999ap-4' 0.1!=1-0.9. Luckily int-0.5 seems OK, float.hex(0.5): '0x1.0000000000000p-1'.
+			#It might be OK to take an arbitary float number as the upper limit, as there is not any operation on it beside "=="". But I don't.
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
 				exit()
