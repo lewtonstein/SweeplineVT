@@ -428,6 +428,14 @@ class Voronoi(object):
 	debug = False
 	#debug = True
 	def __init__(self,image=None,events=None,**kwargs):
+		"""
+		image: a 2D array in which >0 means non-empty.
+		events: coordinates of points, 2D array with shape (# of points, 2).
+		if calarea=True, calculate area of each cell.
+		if calCentroid=True, calculate the centroid of each cell.
+		Resolution: int, number of decimals to round on the input event coordinates
+			default=3. But no rounding on input when "calCentroid".
+		"""
 		#StartTime=time.time()
 		self.FileName = kwargs.pop('FileName','tmp')
 		print(color('Voronoi Construction: '+self.FileName,34,1))
@@ -530,7 +538,7 @@ class Voronoi(object):
 			if not self.ToCalCtd: events[:,:2]=np.round(events[:,:2],Resolution)
 			tmp,ind,cts=np.unique(events[:,2::-1],return_index=True,return_counts=True,axis=0)
 			if tmp.shape[0]!=events.shape[0]:
-				warnings.warn(color("Warning: %d duplicated points deleted" % (events.shape[0]-len(tmp)),31,1))
+				warnings.warn(color("found %d duplicated points" % (events.shape[0]-len(tmp)),31,1))
 			self.Py,self.Px = tmp[:,0],tmp[:,1]
 			#if events.shape[1] == 3: value = tmp[:,2] #to be continued
 			self.pmap={(self.Px[n],self.Py[n]):n+1 for n in np.arange(self.Px.size)}
@@ -711,8 +719,6 @@ class Voronoi(object):
 		T.pop(-1)
 		T.pop(-2)
 
-		#if 1: d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1 open('a.reg','w').write('image\n') np.savetxt('a.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
-
 		#???
 		for e in self.Edges.values():
 			if e.summit is not None:
@@ -736,8 +742,6 @@ class Voronoi(object):
 				#print(-1,e.base,-0.5, (e.p0[0]**2 + e.p0[0] + e.p0[1]**2 - e.p1[0]**2 - e.p1[1]**2 - e.p1[0])/2/(e.p0[1]-e.p1[1]))
 				e.complete(-0.5, (e.p0[0]**2 + e.p0[0] + e.p0[1]**2 - e.p1[0]**2 - e.p1[1]**2 - e.p1[0])/2/(e.p0[1]-e.p1[1])) #although mostly they cross self.ImgSizeY, there is a low possibility not. So I input the crossing point at Left or Right edge of image, let complete to recalculate the summit
 			self.Edges[l] = T.pop(l)
-
-		#if 1: d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1 open('aa.reg','w').write('image\n') np.savetxt('aa.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
 
 		for e in self.Edges.values():
 			if e.summit is not None:
