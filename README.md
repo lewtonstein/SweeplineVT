@@ -32,18 +32,7 @@ pl_VT.py example_VT.dat example_ctd.dat -s
 
 The red points are the Voronoi sites (input points from "example.dat"). The green lines connect each sites with the corresponding cell centroid.
 
-![example](https://github.com/lewtonstein/SweepLine/blob/master/SweepLineVT/doc/example_VT.png)
-
-* In the output example_VT.dat, each item corresponds to one cell edge. The 9 columns are:
- + 1: index of edge
- + 2-3 and 3-4: coordinates of the two Voronoi vertices (nodes) of the edge
- + 5-6 and 7-8: coordiantes of the two nearest Voronoi sites (The Delaunay diagram)
-
-* In the output example_ctd.dat, each item corresponds to one cell. The 6 columns are:
- + 1: index of cell / site.
- + 2-3: centroid of the cell
- + 4-5: Voronoi site of the cell
- + 6: area of the cell
+![example](https://github.com/lewtonstein/SweepLine/blob/master/SweepLineVT/doc/example_VT.png?raw=true)
 
 ### Make centroidal Voronoi Tessellation (CVT) of 14 points in 0<x<7, 0<y<5.
 ```
@@ -54,4 +43,25 @@ pl_VT.py CVT14_VT.dat -s
 "-s" of slvt.py means "silent". "-s" of pl_VT.py means "step".
 
 * One possible result you might see:   
-![CVT14](https://github.com/lewtonstein/SweepLine/blob/master/SweepLineVT/doc/CVT14_VT.png)
+![CVT14](https://github.com/lewtonstein/SweeplineVT/blob/master/SweeplineVT/doc/CVT14_VT.png?raw=true)
+
+## Output
+* {FileName}_VT.dat: each item corresponds to one cell edge. The 9 columns are:
+ + 1: index of edge
+ + 2-3 and 3-4: coordinates of the two Voronoi vertices (nodes) of the edge
+ + 5-6 and 7-8: coordiantes of the two nearest Voronoi sites (The Delaunay diagram)
+
+* With "--calCentroid", {FileName}_ctd.dat: each item corresponds to one cell. The 6 columns are:
+ + 1: index of cell / site.
+ + 2-3: Voronoi site of the cell
+ + 4-5: centroid of the cell
+ + 6: area of the cell
+ + 7: site duplication number (>1 means duplicated)
+
+* With "--calarea", {FileName}_area.dat: each item corresponds to one cell. The 6 columns are:
+ + 1: index of cell / site.
+ + 2-3: Voronoi site of the cell
+ + 4: area of the cell
+ + 5: site duplication number (>1 means duplicated)
+
+

@@ -54,6 +54,9 @@ OPTIONS
                                 e.g. -0.5,1023.5,-0.5,1023.5 --> a 1024x1024 image to view in ds9
 	--rmedgepoint		Remove edge points in Area map
 	-h/--help		Help
+
+NOTE
+	When --calCentroid or --makeCVT, you might want to specify --border explicitly, or else extra padding will be added just for better looking.
 		"""
 	def usage():
 		print(__doc__)
@@ -112,11 +115,12 @@ OPTIONS
 		elif opt == '--resolution':
 			try:
 				n = int(arg)
-				assert n>=0 and n<Voronoi.SLVround
+				assert n>=0
 			except:
 				print('ERROR: --resolution',arg)
 				exit()
 			else:
+				if n>=Voronoi.SLVround: raise RuntimeError('--resolution Do you really want such a high resolution?')
 				Options['Resolution'] = n
 		elif opt == '--accuracy':
 			try:

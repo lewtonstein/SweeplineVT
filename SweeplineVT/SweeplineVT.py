@@ -502,7 +502,7 @@ class Voronoi(object):
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
 				exit()
-			#if Voronoi.debug: print("OffSet:",self.OffSetX,self.OffSetY)
+			#if Voronoi.debug: print("OffSet:",self.OffSetX,self.OffSetY,self.scale)
 			#if Voronoi.debug: print("ImgSize:",self.ImgSizeX,self.ImgSizeY) 
 
 			self.MakeIntImage=kwargs.pop('MakeIntImage',False)
@@ -528,14 +528,14 @@ class Voronoi(object):
 				print('>> '+self.FileName+'_image.fits')
 				print('>> '+self.FileName+'_points.reg')
 			Resolution=kwargs.pop('Resolution',3)
-			tmp = {(round(events[n,0],Resolution),round(events[n,1],Resolution)):events[n] for n in range(events.shape[0])}
-			if len(tmp)!=events.shape[0]:
-				print(color("Warning: %d duplicated points deleted" % (events.shape[0]-len(tmp)),31,1))
-				events = np.array(list(tmp.values()))
-			tmp = np.array(sorted(events,key=lambda x:(x[1],x[0]))).round(Voronoi.SLVround)
-			self.Px,self.Py = tmp[:,0],tmp[:,1]
-			if events.shape[1] == 3: value = tmp[:,2] #to be continued
+			if not self.ToCalCtd: events[:,:2]=np.round(events[:,:2],Resolution)
+			tmp,ind,cts=np.unique(events[:,2::-1],return_index=True,return_counts=True,axis=0)
+			if tmp.shape[0]!=events.shape[0]:
+				warnings.warn(color("Warning: %d duplicated points deleted" % (events.shape[0]-len(tmp)),31,1))
+			self.Py,self.Px = tmp[:,0],tmp[:,1]
+			#if events.shape[1] == 3: value = tmp[:,2] #to be continued
 			self.pmap={(self.Px[n],self.Py[n]):n+1 for n in np.arange(self.Px.size)}
+			self.pind={(self.Px[n],self.Py[n]):[ind[n],cts[n]] for n in np.arange(self.Px.size)}
 		else: sys.exit('ERROR: image mode or events mode?')
 
 		self.Edges = {}
@@ -554,7 +554,6 @@ class Voronoi(object):
 			self.ToCalArea = True
 		if self.ToCalCtd:
 			self.ToCalArea = True
-			kwargs['CalCentroid']=True
 
 		self.Construct(**kwargs)
 		if self.ToCalArea: self.CalArea(**kwargs)
@@ -599,23 +598,32 @@ class Voronoi(object):
 			fits.writeto(self.FileName+'_pvd.fits',self.pmap,Hdr,overwrite=True)
 		if self.ToCalArea and not self.ToCalCtd:
 			if type(self.Amap) is dict:
-				print('>> '+self.FileName+'_area.dat')
-				np.savetxt(self.FileName+'_area.dat',np.hstack((np.array(list(self.Amap.values())).reshape(len(self.Amap),1),np.array(list(self.Amap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%.9g	%.9g	%.9g')
+				with open(self.FileName+'_area.dat','w') as fout:
+					for (x,y) in self.Amap:
+						print(f'{self.pind[x,y][0]:d}	{(x-self.OffSetX)/self.scale:.9g} {(y-self.OffSetY)/self.scale:.9g} {self.Amap[x,y]:.9g} {self.pind[x,y][1]:d}',file=fout)
+					print('>>',fout.name)
 			else:
 				print('>> '+self.FileName+'_area.fits')
 				fits.writeto(self.FileName+'_area.fits',self.Amap,Hdr,overwrite=True)
 		if self.ToCalCtd:
 			if type(self.Amap) is dict:
-				Ps=np.array(list(self.Amap.keys()))
-				print('>> '+self.FileName+'_ctd.dat')
-				np.savetxt(self.FileName+'_ctd.dat',np.hstack((np.arange(1,len(self.Wmap)+1).reshape(len(self.Wmap),1),np.array(list(self.Wmap.values()))-[self.OffSetX,self.OffSetY],(Ps-[self.OffSetX,self.OffSetY])/self.scale,np.array(list(self.Amap.values())).reshape(len(self.Amap),1))),fmt='%d	%.9g	%.9g	%.9g	%.9g	%.9g')
+				with open(self.FileName+'_ctd.dat','w') as fout:
+					for (x,y) in self.Amap:
+						print(f'{self.pind[x,y][0]:d}	{(x-self.OffSetX)/self.scale:.9g} {(y-self.OffSetY)/self.scale:.9g} {(self.Wmap[x,y][0]-self.OffSetX)/self.scale:.9g} {(self.Wmap[x,y][1]-self.OffSetY)/self.scale:.9g} {self.Amap[x,y]:.9g} {self.pind[x,y][1]:d}',file=fout)
+					print('>>',fout.name)
 				if self.Mode=='image' or self.MakeIntImage:
+					Ps=np.array(list(self.Amap.keys()))
 					np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
 					print('>> '+self.FileName+'_ctd.reg')
 		if self.ToCum2D:
 				print('>> '+self.FileName+'_cum2d.dat')
 				np.savetxt(self.FileName+'_cum2d.dat',np.hstack((np.array(list(self.CumWmap.values())).reshape(len(self.CumWmap),1),np.array(list(self.CumWmap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
 	#END_OF_def saveresults(self):
+
+	def getarealist(self):
+		if type(self.Amap) is dict:
+			return [self.Amap[x,y] for (x,y) in self.Amap],[self.pind[x,y][0] for (x,y) in self.Amap],[self.pind[x,y][1] for (x,y) in self.Amap]
+		else: print('later')
 
 	def Construct(self,**kwargs):
 		StartTime=time.time()
@@ -854,7 +862,6 @@ class Voronoi(object):
 		return
 
 	def CalArea(self,**kwargs):
-		CalCentroid=kwargs.pop('CalCentroid',False)
 		self.ToCum2D=kwargs.pop('cum2d',False)
 		self.ToCalTri=kwargs.pop('calTriangle',False)
 		RemoveEdgePoint = kwargs.pop('RemoveEdgePoint',False)
@@ -863,7 +870,7 @@ class Voronoi(object):
 		if Voronoi.debug: print(color("\nCalculating Voronoi Cell Areas",32,0))
 		if type(self.pmap) is dict:
 			self.Amap={(self.Px[n],self.Py[n]):np.float64(0) for n in np.arange(self.Px.size)}
-			if CalCentroid: self.Wmap={(self.Px[n],self.Py[n]):np.zeros(2,dtype=np.float64) for n in np.arange(self.Px.size)}
+			if self.ToCalCtd: self.Wmap={(self.Px[n],self.Py[n]):np.zeros(2,dtype=np.float64) for n in np.arange(self.Px.size)}
 			P0 = np.array([e.p0 for e in self.Edges.values()])
 			P1 = np.array([e.p1 for e in self.Edges.values()])
 		else:
@@ -889,7 +896,7 @@ class Voronoi(object):
 		for n in np.arange(P0.shape[0]):
 			self.Amap[tuple(P0[n])] += Earea[n]
 			self.Amap[tuple(P1[n])] += Earea[n]
-			if CalCentroid:
+			if self.ToCalCtd:
 				self.Wmap[tuple(P0[n])] += Earea[n]*(E0[n]+E1[n])
 				self.Wmap[tuple(P1[n])] += Earea[n]*(E0[n]+E1[n])
 
@@ -1159,7 +1166,7 @@ class Voronoi(object):
 			#if N in EpB: print('	bottom',EpB[N])
 			#if N in EpT: print('	top',EpT[N])
 			self.Amap[x,y] += t_area
-			if CalCentroid:
+			if self.ToCalCtd:
 				self.Wmap[x,y] += t_area*np.array([-0.5*2,EpL[N][0]+EpL[N][1]]) #edge_left: x=minimum, two y values
 			E0e.append([-0.5,EpL[N][0]])
 			E1e.append([-0.5,EpL[N][1]])
@@ -1175,7 +1182,7 @@ class Voronoi(object):
 			#if N in EpL: print('	left',EpL[N])
 			#if N in EpR: print('	right',EpR[N])
 			self.Amap[x,y] += t_area
-			if CalCentroid:
+			if self.ToCalCtd:
 				self.Wmap[x,y] += t_area*np.array([EpB[N][0]+EpB[N][1],-0.5*2]) #edge_bottom: two x values, y=minimum
 			#print(x,y,t_area)
 			E0e.append([EpB[N][0],-0.5])
@@ -1192,7 +1199,7 @@ class Voronoi(object):
 			#print('Right',x,y,EpR[N])
 			#if N in EpB: print('	bottom',EpB[N])
 			#if N in EpT: print('	top',EpT[N])
-			if CalCentroid:
+			if self.ToCalCtd:
 				self.Wmap[x,y] += t_area*np.array([(self.RightLimit)*2,EpR[N][0]+EpR[N][1]]) #edge_right: x=maximum, two y values
 			E0e.append([self.RightLimit,EpR[N][0]])
 			E1e.append([self.RightLimit,EpR[N][1]])
@@ -1208,7 +1215,7 @@ class Voronoi(object):
 			#if N in EpL: print('	left',EpL[N])
 			#if N in EpR: print('	right',EpR[N])
 			self.Amap[x,y] += t_area
-			if CalCentroid:
+			if self.ToCalCtd:
 				self.Wmap[x,y] += t_area*np.array([EpT[N][0]+EpT[N][1],(self.TopLimit)*2]) #edge_top, two x values, y=maximum
 			E0e.append([EpT[N][0],self.TopLimit])
 			E1e.append([EpT[N][1],self.TopLimit])
