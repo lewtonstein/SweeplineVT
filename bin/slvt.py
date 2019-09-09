@@ -5,8 +5,7 @@
 #Email: lewtonstein@gmail.com
 ################################################################################
 import numpy as np
-try: import pyfits as fits
-except: from astropy.io import fits
+from astropy.io import fits
 import json
 from SweeplineVT import Voronoi
 import time,sys,warnings,os,getopt

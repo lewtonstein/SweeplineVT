@@ -1,6 +1,6 @@
 # SweeplineVT -- Voronoi Tessellation using sweep-line algorithm
 
-[SweeplineVT github](https://github.com/lewtonstein/SweepLine)
+[SweeplineVT github](https://github.com/lewtonstein/SweeplineVT)
 
 ```
 pip install SweeplineVT
@@ -32,7 +32,7 @@ pl_VT.py example_VT.dat example_ctd.dat -s
 
 The red points are the Voronoi sites (input points from "example.dat"). The green lines connect each sites with the corresponding cell centroid.
 
-![example](https://github.com/lewtonstein/SweepLine/blob/master/SweepLineVT/doc/example_VT.png?raw=true)
+![example](https://github.com/lewtonstein/SweeplineVT/blob/master/SweeplineVT/doc/example_VT.png?raw=true)
 
 ### Make centroidal Voronoi Tessellation (CVT) of 14 points in 0<x<7, 0<y<5.
 ```
