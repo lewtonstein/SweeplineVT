@@ -86,15 +86,11 @@ class HalfEdgeM(object):
 		wx,wy = Next.p1
 		if uy>wy: ux,uy,wx,wy=wx,wy,ux,uy
 		if vy>wy: vx,vy,wx,wy=wx,wy,vx,vy
-		#print('Intersect',(ux,uy),(vx,vy),(wx,wy))
+		print('Intersect',(ux,uy),(vx,vy),(wx,wy))
 
 		if uy == vy and ux != vx and vy != wy:
 			cx = (ux + vx)/2
-			if wx==cx:
-				#solve[(x - u1)^2+(y - u2)^2=r^2, (x-v1)^2+(y-u2)^2=r^2, w2-y=r, x,y]
-				cy = (4*(wy**2-uy**2)-(ux-vx)**2)/8./(wy-uy)
-				#d = (4*(wy-uy)**2+(ux-vx)**2)/8./(wy-uy)
-				return cy,wy
+			if wx==cx: return wx,wy
 			else:
 				#solve[(x - u1)^2+(y - u2)^2=r2,(x-v1)^2+(y-u2)^2=r2, (x-w1)^2+(y-w2)^2=r2, x,y]
 				cy = (-ux*wx - vx*wx + wx**2 + wy**2 + ux*vx - uy**2)/2./(wy-uy)
@@ -110,7 +106,7 @@ class HalfEdgeM(object):
 		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
 		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
 		d = np.sqrt((cx-ux)**2+(cy-uy)**2)
-		#print(cx,cy,cy+d)
+		print(cx,cy,cy+d)
 		if self.direct==Next.direct==1 and cx<=min(self.base[0],Next.base[0]) \
 		or self.direct==Next.direct==-1 and cx>=max(self.base[0],Next.base[0]):
 			return None
@@ -126,8 +122,8 @@ class HalfEdgeM(object):
 		elif yb<=-0.5 and ys<=-0.5 or yb>=self.TopLimit and ys>=self.TopLimit: self.summit = None
 		#elif round(xs,Voronoi.SLVround)==round(xb,Voronoi.SLVround) and round(ys,Voronoi.SLVround)==round(yb,Voronoi.SLVround): self.summit = None #seems useless
 		else:
-			if echo: print(xb,yb,xs,ys)
-			if not -0.5<=xb<=self.RightLimit: print('Unexpected base x',xb) #I don't know why x is so good
+			if not -0.5<=xb<=self.RightLimit:
+				print(xb,yb,xs,ys,'Unexpected base x',xb) #I don't know why x is so good
 			if yb<-0.5 and ys>self.TopLimit: #crossing the whole image
 				#if echo: print(self.base,xs,ys,'->', end=' ')
 				self.base = xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
@@ -272,12 +268,14 @@ class SweepTable(dict):
 		if abs(y-HE_l.p1[1])>abs(y-y0): x0,y0=HE_l.p1
 		if abs(y-HE_r.p1[1])>abs(y-y0): x0,y0=HE_r.p1
 		xb,yb = x,(y**2-y0**2-(x-x0)**2)/2./(y-y0)
-		#print(HE_l) print(HE_r) print(x,y,x0,y0,'-->',xb,yb)
+		#print(HE_l)
+		#print(HE_r)
+		#print(x,y,x0,y0,'-->',xb,yb)
 		return direct,xb,yb
 
 	def shrink(self):
 		x,y,l,r = self.p
-		#print('shrink4start',x,y,self[l],self[r])
+		print('shrink4start',x,y,self[l],self[r])
 		n = self.KL.index(l)
 		if r!=self.KL[n+1]:
 			print('shrink4start',x,y,l,self[l],r,self[r])
@@ -292,8 +290,8 @@ class SweepTable(dict):
 		#self.Q.deleteifhas(L)
 		#self.Q.deleteifhas(r)
 		direct,xb,yb=SweepTable.merge2one(self[l], self[r],x,y)
-		if self[l].direct==self[r].direct==1 and xb<=max(self[l].base[0],self[r].base[0]) \
-		or self[l].direct==self[r].direct==-1 and xb>=min(self[l].base[0],self[r].base[0]):
+		if self[l].direct==self[r].direct==1 and xb<=min(self[l].base[0],self[r].base[0]) \
+		or self[l].direct==self[r].direct==-1 and xb>=max(self[l].base[0],self[r].base[0]):
 			return []
 		if Voronoi.debug: print('merge:',l,r,'->',(xb,yb))
 		count = next(self.counter)
@@ -426,7 +424,7 @@ class Voronoi(object):
 	SLVround = 6
 	#if SLVround is low, two points far from each other can be taken as neighbors
 	debug = False
-	#debug = True
+	debug = True
 	def __init__(self,image=None,events=None,**kwargs):
 		"""
 		image: a 2D array in which >0 means non-empty.
@@ -468,12 +466,13 @@ class Voronoi(object):
 
 			border=kwargs.get('border',None)
 			if border is None:
-				self.scale = 2*np.sqrt(events.shape[0])/(np.max(events[:,:2])-np.min(events[:,:2]))
-				if self.scale<2: self.scale=1
-				else:
-					self.scale=np.round(self.scale,1)
-					#print(f'Scale the coordinates by: {self.scale}')
-					events[:,:2] *= self.scale
+				if False:
+					self.scale = 2*np.sqrt(events.shape[0])/(np.max(events[:,:2])-np.min(events[:,:2]))
+					if self.scale<2: self.scale=1
+					else:
+						self.scale=np.round(self.scale,1)
+						#print(f'Scale the coordinates by: {self.scale}')
+						events[:,:2] *= self.scale
 				xlow = np.floor(np.min(events[:,0]))-1
 				ylow = np.floor(np.min(events[:,1]))-1
 				xhigh = np.ceil(np.max(events[:,0]))+1
@@ -509,8 +508,8 @@ class Voronoi(object):
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
 				exit()
-			#if Voronoi.debug: print("OffSet:",self.OffSetX,self.OffSetY,self.scale)
-			#if Voronoi.debug: print("ImgSize:",self.ImgSizeX,self.ImgSizeY) 
+			#if Voronoi.debug:
+			print(f"OffSet: {self.OffSetX} {self.OffSetY} Rescale: {self.scale} ImgSize: {self.ImgSizeX} {self.ImgSizeY}")
 
 			self.MakeIntImage=kwargs.pop('MakeIntImage',False)
 			if self.MakeIntImage:
@@ -535,7 +534,10 @@ class Voronoi(object):
 				print('>> '+self.FileName+'_image.fits')
 				print('>> '+self.FileName+'_points.reg')
 			Resolution=kwargs.pop('Resolution',3)
-			if not self.ToCalCtd: events[:,:2]=np.round(events[:,:2],Resolution)
+			if not self.ToCalCtd:
+				print('round')
+				events[:,:2]=np.round(events[:,:2],Resolution)
+				#np.savetxt('try',events)
 			tmp,ind,cts=np.unique(events[:,2::-1],return_index=True,return_counts=True,axis=0)
 			if tmp.shape[0]!=events.shape[0]:
 				warnings.warn(color("found %d duplicated points" % (events.shape[0]-len(tmp)),31,1))
@@ -708,7 +710,7 @@ class Voronoi(object):
 					if Voronoi.debug: print('VertexEvent:',T.p[0],T.p[1])
 					if Voronoi.debug: print('TV1',T.p,T)
 					for n in T.shrink():
-						#print('pop',T[n])
+						print('pop',T[n])
 						self.Edges[n] = T.pop(n)
 					if Voronoi.debug: print('TV2',T)
 			else: sys.exit('error2')
