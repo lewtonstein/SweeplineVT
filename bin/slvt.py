@@ -167,6 +167,9 @@ NOTE
 		for n in range(MaxIteration):
 			Options['FileName']='iter'+str(n)
 			Options['border']=border
+			if np.any(np.isnan(ctd)):
+				print(ctd)
+				exit()
 			vor=Voronoi(events=ctd,**Options)
 			ctd=np.array(list(vor.Wmap.values()))
 			#if n%10==0: vor.saveresults()

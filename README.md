@@ -45,7 +45,22 @@ pl_VT.py CVT14_VT.dat -s
 * One possible result you might see:   
 ![CVT14](https://github.com/lewtonstein/SweeplineVT/blob/master/SweeplineVT/doc/CVT14_VT.png?raw=true)
 
-## Output
+
+### Show the distribution of cell area
+
+```
+from SweeplineVT import Voronoi
+import pylab as pl
+x=np.random.random(size=10)
+y=np.random.random(size=10)
+vor=Voronoi(events=np.vstack((x,y)).T,calarea=True,autoscale=False)
+Area,ind,cts=vor.getarealist()
+Area/=np.array(cts)
+pl.hist(Area)
+```
+
+
+## Output files
 * {FileName}_VT.dat: each item corresponds to one cell edge. The 9 columns are:
  + 1: index of edge
  + 2-3 and 3-4: coordinates of the two Voronoi vertices (nodes) of the edge

@@ -55,10 +55,12 @@ class HalfEdgeM(object):
 		if self.direct == 0: return self.hist>px
 		else:
 			if self.hist[0] == y0:
+				#print('hist',y0,self.hist)
 				cx = self.hist[1]
 			else:
 				if self.p1[1]>self.p0[1]: u,v = self.p1,self.p0
 				else: v,u = self.p1,self.p0
+				#print(u,v,y0)
 				if u[1]>y0: sys.exit('Error u1>y0   %.8f %.8f - %.8f %.8f - %.8f %.8f' % (u[0],u[1],v[0],v[1],px,y0))
 				if round(u[1],Voronoi.SLVround)==round(v[1],Voronoi.SLVround): cx = (u[0]+v[0])/2.
 				elif round(u[1],Voronoi.SLVround)==round(y0,Voronoi.SLVround): cx = u[0]
@@ -67,8 +69,8 @@ class HalfEdgeM(object):
 					insqrt = (u[1]*v[1]-u[1]*y0-v[1]*y0+y0*y0)*(u[0]*u[0]-2*u[0]*v[0]+u[1]*u[1]-2*u[1]*v[1]+v[0]*v[0]+v[1]*v[1])
 					cx = (self.direct*np.sqrt(insqrt)-u[0]*v[1]+u[0]*y0+u[1]*v[0]-v[0]*y0)/(u[1]-v[1])
 					if insqrt<0: print('Error sqrt<0 %g %.8f %.8f - %.8f %.8f - %.8f %.8f  %.8f' % (insqrt,u[0],u[1],v[0],v[1],px,y0,cx))
-				self.hist = [y0,cx]
-			#print('isRightOf',self.p0,self.p1,self.direct,px,y0,cx)
+				if not np.isinf(cx): self.hist = [y0,cx]
+			if Voronoi.debug: print('isRightOf',self.p0,self.p1,self.direct,px,y0,cx)
 			return cx>px
 	def Intersect(self,Next):
 		#print(self.p1,Next.p0)
@@ -86,7 +88,7 @@ class HalfEdgeM(object):
 		wx,wy = Next.p1
 		if uy>wy: ux,uy,wx,wy=wx,wy,ux,uy
 		if vy>wy: vx,vy,wx,wy=wx,wy,vx,vy
-		print('Intersect',(ux,uy),(vx,vy),(wx,wy))
+		if Voronoi.debug: print('Intersect',(ux,uy),(vx,vy),(wx,wy))
 
 		if uy == vy and ux != vx and vy != wy:
 			cx = (ux + vx)/2
@@ -106,7 +108,8 @@ class HalfEdgeM(object):
 		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
 		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
 		d = np.sqrt((cx-ux)**2+(cy-uy)**2)
-		print(cx,cy,cy+d)
+		#if self.direct==1 and cx<=self.base[0] or Next.direct==1 and cx<=Next.base[0] \
+		#or self.direct==-1 and cx>=self.base[0] or Next.direct==-1 and cx>=Next.base[0]: return None
 		if self.direct==Next.direct==1 and cx<=min(self.base[0],Next.base[0]) \
 		or self.direct==Next.direct==-1 and cx>=max(self.base[0],Next.base[0]):
 			return None
@@ -136,11 +139,17 @@ class HalfEdgeM(object):
 				xb,yb = self.base
 			elif ys>-0.5 and yb<-0.5: #upward crossing y==0 (bottom)
 				if echo: print('upward')
-				self.base = xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
+				if self.direct==0:
+					self.base = xb,-0.5
+				else:
+					self.base = xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
 				xb,yb = self.base
 			elif yb<self.TopLimit and ys>self.TopLimit: #crossing y==max
 				if echo: print(xb,yb,xs,ys,'T->')
-				xs,ys =  xb+(self.TopLimit-yb)*(xs-xb)/(ys-yb), self.TopLimit
+				if self.direct==0:
+					xs,ys = xb,self.TopLimit
+				else:
+					xs,ys = xb+(self.TopLimit-yb)*(xs-xb)/(ys-yb), self.TopLimit
 				if echo: print(xb,yb,xs,ys)
 			elif ys<-0.5 and yb>-0.5: #back crossing y==0
 				xs,ys =  xb-(yb+0.5)*(xs-xb)/(ys-yb), -0.5
@@ -191,7 +200,7 @@ class SweepTable(dict):
 			x = Px[n]
 			y = Py[n]
 			count = next(self.counter)
-			self[count] = self.HalfEdge((x0,y0),(x,y),0,((x0+x)/2.,-0.5))
+			self[count] = self.HalfEdge((x0,y0),(x,y),0,((x0+x)/2.,-np.inf))
 			#print('HalfEdge',count,(x0,y0),(x,y),0,((x0+x)/2.,-0.5))
 			self.KL.append(count)
 			x0,y0 = x,y
@@ -273,99 +282,12 @@ class SweepTable(dict):
 		#print(x,y,x0,y0,'-->',xb,yb)
 		return direct,xb,yb
 
-	def shrink(self):
-		x,y,l,r = self.p
-		print('shrink4start',x,y,self[l],self[r])
-		n = self.KL.index(l)
-		if r!=self.KL[n+1]:
-			print('shrink4start',x,y,l,self[l],r,self[r])
-			print(self.KL)
-			print(self.KL[n],self[self.KL[n]])
-			print(self.KL[n+1],self[self.KL[n+1]])
-			print(self.KL[n+2],self[self.KL[n+2]])
-		assert r==self.KL[n+1]
-		L = self.KL[n-1]
-		R = self.KL[n+2]
-		#print(L,l,r,R,self)
-		#self.Q.deleteifhas(L)
-		#self.Q.deleteifhas(r)
-		direct,xb,yb=SweepTable.merge2one(self[l], self[r],x,y)
-		if self[l].direct==self[r].direct==1 and xb<=min(self[l].base[0],self[r].base[0]) \
-		or self[l].direct==self[r].direct==-1 and xb>=max(self[l].base[0],self[r].base[0]):
-			return []
-		if Voronoi.debug: print('merge:',l,r,'->',(xb,yb))
-		count = next(self.counter)
-		self[count] = self.HalfEdge(self[l].p0,self[r].p1,direct,(xb,yb))
-		#print('HalfEdge',self[count])
-		self.KL[n] = count
-		self.KL.pop(n+1)
-		#print('comp',self[l],xb,yb)
-		self[l].complete(xb,yb)
-		#print('comp',self[r],xb,yb)
-		self[r].complete(xb,yb)
-		i1 = self[L].Intersect(self[count])
-		if i1 is not None:
-			if round(i1[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i1}')
-			if Voronoi.debug: print('->V L',i1,self[L],self[count])
-			self.Q.insert(i1[0],i1[1],L,count)
-		i2 = self[count].Intersect(self[R])
-		if i2 is not None:
-			if round(i2[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i2}')
-			if Voronoi.debug: print('->V R',i2,self[count],self[R])
-			self.Q.insert(i2[0],i2[1],count,R)
-		return l,r
-	#END_OF_def shrink(self):
+	#def shrink(self): x,y,l,r = self.p n = self.KL.index(l) if r!=self.KL[n+1]: print(self.KL) print(self.KL[n],self[self.KL[n]]) print(self.KL[n+1],self[self.KL[n+1]]) print(self.KL[n+2],self[self.KL[n+2]]) assert r==self.KL[n+1] L = self.KL[n-1] R = self.KL[n+2] #print(L,l,r,R,self) #self.Q.deleteifhas(L) #self.Q.deleteifhas(r) direct,xb,yb=SweepTable.merge2one(self[l], self[r],x,y) if self[l].direct==self[r].direct==1 and xb<=min(self[l].base[0],self[r].base[0]) \ or self[l].direct==self[r].direct==-1 and xb>=max(self[l].base[0],self[r].base[0]): return [] if Voronoi.debug: print('merge:',l,r,'->',(xb,yb)) count = next(self.counter) self[count] = self.HalfEdge(self[l].p0,self[r].p1,direct,(xb,yb)) #print('HalfEdge',self[count]) self.KL[n] = count self.KL.pop(n+1) #print('comp',self[l],xb,yb) self[l].complete(xb,yb) #print('comp',self[r],xb,yb) self[r].complete(xb,yb) i1 = self[L].Intersect(self[count]) if i1 is not None: if round(i1[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i1}') if Voronoi.debug: print('->V L',i1,self[L],self[count]) self.Q.insert(i1[0],i1[1],L,count) i2 = self[count].Intersect(self[R]) if i2 is not None: if round(i2[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i2}') if Voronoi.debug: print('->V R',i2,self[count],self[R]) self.Q.insert(i2[0],i2[1],count,R) return l,r #END_OF_def shrink(self):
 
 	#def RenewSideBoundary(self): y = self.p[1] #print(color('lt',31,1),self[self.KL[-2]],self.RightLimit,y,self.ysweep) todo = [] if y <= self.ysweep or len(self)<=2: return todo if self[self.KL[-2]].isRightOf(self.RightLimit,y): #if Voronoi.debug: print(color('Edge:',31,1),self[-2],self[self.KL[-2]]) assert self[-2].p0==self[self.KL[-2]].p1 u0,u1 = self[self.KL[-2]].p0 v0,v1 = self[self.KL[-2]].p1 assert u1!=v1 yb = (u0**2-2*u0*(self.RightLimit)+u1**2-v0**2+2*v0*(self.RightLimit)-v1**2)/2./(u1-v1) self[self.KL[-2]].complete(self.RightLimit,yb) todo.append([self.KL[-2],self[self.KL[-2]].copy()]) #maybe the VertexEvt to delete is just the p which has just been deleted from Q as the minimum. if self.p is not None and len(self.p)==4 and self.KL[-3]==self.p[2]: self.p = None print('WARNING no',self.p) #else: self.Q.deleteifhas(self.KL[-3]) self[-2] = self.pop(self.KL[-2]) self.KL.pop(-2) self[-2].p1 = (-2,-2) self[-2].direct = 1 if Voronoi.debug: print('-->',self[-2]) if not self[self.KL[1]].isRightOf(-0.5,y): #if Voronoi.debug: print(color('Edge:',31,1),self[-1],self[self.KL[1]],-0.5,y) assert self[-1].p1==self[self.KL[1]].p0 u0,u1 = self[self.KL[1]].p0 v0,v1 = self[self.KL[1]].p1 assert u1!=v1 yb = (u0**2-2*u0*(-0.5)+u1**2-v0**2+2*v0*(-0.5)-v1**2)/2./(u1-v1) self[self.KL[1]].complete(-0.5,yb) todo.append([self.KL[1],self[self.KL[1]].copy()]) if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]: self.p = None print('WARNING no',self.p) #else: self.Q.deleteifhas(self.KL[1]) self[-1] = self.pop(self.KL[1]) self.KL.pop(1) self[-1].p0 = (-1,-1) self[-1].direct = -1 #if Voronoi.debug: print('-->:',self[-1]) self.ysweep = y return todo #END_OF_def RenewSideBoundary(self):
 
-	'''
-	def RenewRightBoundary(self):
-		#y = self.p[1]
-		#print(color('lt',31,1),self[self.KL[-2]],self.RightLimit,y,self.ysweep)
-		#todo = []
-		#if y <= self.ysweep or len(self)<=2: return todo
-		#if self[self.KL[-2]].isRightOf(self.RightLimit,y):
-		if 1:
-			if Voronoi.debug: print(color('EdgeR:',31,1),self[-2],self[self.KL[-2]])
-			assert self[-2].p0==self[self.KL[-2]].p1
-			u0,u1 = self[self.KL[-2]].p0
-			v0,v1 = self[self.KL[-2]].p1
-			assert u1!=v1
-			yb = (u0**2-2*u0*(self.RightLimit)+u1**2-v0**2+2*v0*(self.RightLimit)-v1**2)/2./(u1-v1)
-			self[self.KL[-2]].complete(self.RightLimit,yb)
-			todo=[self.KL[-2],self[self.KL[-2]].copy()]
-			self[-2] = self.pop(self.KL[-2])
-			self.KL.pop(-2)
-			self[-2].p1 = (-2,-2)
-			self[-2].direct = 1
-			if Voronoi.debug: print('-->',self[-2])
-		return todo
-	#END_OF_def RenewRightBoundary(self):
-	def RenewLeftBoundary(self):
-		y = self.p[1]
-		#print(color('lt',31,1),self[self.KL[-2]],self.RightLimit,y,self.ysweep)
-		#todo = []
-		#if y <= self.ysweep or len(self)<=2: return todo
-		#if not self[self.KL[1]].isRightOf(-0.5,y):
-		if 1:
-			if Voronoi.debug: print(color('EdgeL:',31,1),self[-1],self[self.KL[1]],-0.5,y)
-			assert self[-1].p1==self[self.KL[1]].p0
-			u0,u1 = self[self.KL[1]].p0
-			v0,v1 = self[self.KL[1]].p1
-			assert u1!=v1
-			yb = (u0**2-2*u0*(-0.5)+u1**2-v0**2+2*v0*(-0.5)-v1**2)/2./(u1-v1)
-			self[self.KL[1]].complete(-0.5,yb)
-			todo=[self.KL[1],self[self.KL[1]].copy()]
-			#if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]: self.p = None print('WARNING no',self.p)
-			#else: self.Q.deleteifhas(self.KL[1])
-			self[-1] = self.pop(self.KL[1])
-			self.KL.pop(1)
-			self[-1].p0 = (-1,-1)
-			self[-1].direct = -1
-			#if Voronoi.debug: print('-->:',self[-1])
-		return todo
-	#END_OF_def RenewLeftBoundary(self):
-	'''
+	#def RenewRightBoundary(self): #y = self.p[1] #print(color('lt',31,1),self[self.KL[-2]],self.RightLimit,y,self.ysweep) #todo = [] #if y <= self.ysweep or len(self)<=2: return todo #if self[self.KL[-2]].isRightOf(self.RightLimit,y): if 1: if Voronoi.debug: print(color('EdgeR:',31,1),self[-2],self[self.KL[-2]]) assert self[-2].p0==self[self.KL[-2]].p1 u0,u1 = self[self.KL[-2]].p0 v0,v1 = self[self.KL[-2]].p1 assert u1!=v1 yb = (u0**2-2*u0*(self.RightLimit)+u1**2-v0**2+2*v0*(self.RightLimit)-v1**2)/2./(u1-v1) self[self.KL[-2]].complete(self.RightLimit,yb) todo=[self.KL[-2],self[self.KL[-2]].copy()] self[-2] = self.pop(self.KL[-2]) self.KL.pop(-2) self[-2].p1 = (-2,-2) self[-2].direct = 1 if Voronoi.debug: print('-->',self[-2]) return todo #END_OF_def RenewRightBoundary(self):
+	#def RenewLeftBoundary(self): y = self.p[1] #print(color('lt',31,1),self[self.KL[-2]],self.RightLimit,y,self.ysweep) #todo = [] #if y <= self.ysweep or len(self)<=2: return todo #if not self[self.KL[1]].isRightOf(-0.5,y): if 1: if Voronoi.debug: print(color('EdgeL:',31,1),self[-1],self[self.KL[1]],-0.5,y) assert self[-1].p1==self[self.KL[1]].p0 u0,u1 = self[self.KL[1]].p0 v0,v1 = self[self.KL[1]].p1 assert u1!=v1 yb = (u0**2-2*u0*(-0.5)+u1**2-v0**2+2*v0*(-0.5)-v1**2)/2./(u1-v1) self[self.KL[1]].complete(-0.5,yb) todo=[self.KL[1],self[self.KL[1]].copy()] #if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]: self.p = None print('WARNING no',self.p) #else: self.Q.deleteifhas(self.KL[1]) self[-1] = self.pop(self.KL[1]) self.KL.pop(1) self[-1].p0 = (-1,-1) self[-1].direct = -1 #if Voronoi.debug: print('-->:',self[-1]) return todo #END_OF_def RenewLeftBoundary(self):
 
 class EventQueue(object):
 	def __init__(self,Px,Py):
@@ -424,7 +346,7 @@ class Voronoi(object):
 	SLVround = 6
 	#if SLVround is low, two points far from each other can be taken as neighbors
 	debug = False
-	debug = True
+	#debug = True
 	def __init__(self,image=None,events=None,**kwargs):
 		"""
 		image: a 2D array in which >0 means non-empty.
@@ -466,7 +388,7 @@ class Voronoi(object):
 
 			border=kwargs.get('border',None)
 			if border is None:
-				if False:
+				if kwargs.get('autoscale',True):
 					self.scale = 2*np.sqrt(events.shape[0])/(np.max(events[:,:2])-np.min(events[:,:2]))
 					if self.scale<2: self.scale=1
 					else:
@@ -508,8 +430,8 @@ class Voronoi(object):
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
 				exit()
-			#if Voronoi.debug:
-			print(f"OffSet: {self.OffSetX} {self.OffSetY} Rescale: {self.scale} ImgSize: {self.ImgSizeX} {self.ImgSizeY}")
+			if Voronoi.debug:
+				print(f"OffSet: {self.OffSetX} {self.OffSetY} Rescale: {self.scale} ImgSize: {self.ImgSizeX} {self.ImgSizeY}")
 
 			self.MakeIntImage=kwargs.pop('MakeIntImage',False)
 			if self.MakeIntImage:
@@ -535,9 +457,7 @@ class Voronoi(object):
 				print('>> '+self.FileName+'_points.reg')
 			Resolution=kwargs.pop('Resolution',3)
 			if not self.ToCalCtd:
-				print('round')
 				events[:,:2]=np.round(events[:,:2],Resolution)
-				#np.savetxt('try',events)
 			tmp,ind,cts=np.unique(events[:,2::-1],return_index=True,return_counts=True,axis=0)
 			if tmp.shape[0]!=events.shape[0]:
 				warnings.warn(color("found %d duplicated points" % (events.shape[0]-len(tmp)),31,1))
@@ -657,6 +577,8 @@ class Voronoi(object):
 				assert R == T.KL[n+3]
 				#from left to right L l r R
 				#Q.deleteifhas(L)
+				self.afterinsertbetween(T,L,R,l,r)
+				'''
 				BoundaryUpdated=False
 				i1 = T[L].Intersect(T[l])
 				if i1 is None or i1[0]<-0.5:
@@ -681,24 +603,12 @@ class Voronoi(object):
 					if Voronoi.debug: print('->V R',i2,T[r],T[R])
 					Q.insert(i2[0],i2[1],r,R)
 				if BoundaryUpdated: self.ysweep = T.p[1]
+				'''
 
 				'''
 				When T[L].direct==0, the SiteEvent leads to a VertexEvent which have the same y and thus needs to be processed immediately.
 				The following 5-elements method is Wrong as it adds an additional pair of SiteEvent edges.
-				if T[L].direct==0:
-					assert n>=1
-					T.NewEdges(n-1,T.p[0],T.p[1],otherside=-1)
-					if Voronoi.debug: print('TS2',T)
-					l2 = T.KL[n]
-					r2 = T.KL[n+1]
-					i3 = T[r2].Intersect(T[L])
-					if i3 is not None:
-						if Voronoi.debug: print('->V',i3,T[r2],T[L])
-						if Voronoi.debug: print('->V',i1,T[L],T[l])
-						print(i3,i1)
-						assert round(i3[0],Voronoi.SLVround)==round(i1[0],Voronoi.SLVround) \
-						and round(i3[1],Voronoi.SLVround)==round(i1[1],Voronoi.SLVround)
-						Q.insert(i3[0],i3[1],L,l,r2)
+				if T[L].direct==0: assert n>=1 T.NewEdges(n-1,T.p[0],T.p[1],otherside=-1) if Voronoi.debug: print('TS2',T) l2 = T.KL[n] r2 = T.KL[n+1] i3 = T[r2].Intersect(T[L]) if i3 is not None: if Voronoi.debug: print('->V',i3,T[r2],T[L]) if Voronoi.debug: print('->V',i1,T[L],T[l]) print(i3,i1) assert round(i3[0],Voronoi.SLVround)==round(i1[0],Voronoi.SLVround) \ and round(i3[1],Voronoi.SLVround)==round(i1[1],Voronoi.SLVround) Q.insert(i3[0],i3[1],L,l,r2)
 				'''
 
 			elif len(T.p)>=4: #Vertex Event
@@ -709,8 +619,8 @@ class Voronoi(object):
 					for n in T.p[2:]: assert n in T
 					if Voronoi.debug: print('VertexEvent:',T.p[0],T.p[1])
 					if Voronoi.debug: print('TV1',T.p,T)
-					for n in T.shrink():
-						print('pop',T[n])
+					for n in self.shrink(T):
+						#print('pop',T[n])
 						self.Edges[n] = T.pop(n)
 					if Voronoi.debug: print('TV2',T)
 			else: sys.exit('error2')
@@ -801,6 +711,82 @@ class Voronoi(object):
 		T[-1].direct = -1
 		if Voronoi.debug: print('-->:',T[-1])
 	#END_OF_def RenewLeftBoundary(self,T):
+
+	def afterinsertbetween(self,T,L,R,l,r=None):
+		BoundaryUpdated=False
+		if r is None: r=l
+		i1 = T[L].Intersect(T[l])
+		#print(L,l,'->',i1)
+		if i1 is None or i1[0]<-0.5:
+			if T.p[1]>T.ysweep and L==T.KL[1] and not T[L].isRightOf(-0.5,T.p[1]):
+				self.RenewLeftBoundary(T)
+				BoundaryUpdated=True
+			#else: print(L,T[L])
+		else:
+			if T[L].direct!=0 or T[L].p0[0]+T[L].p1[0]!=2*T[l].p1[0]:
+				if round(i1[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {T.p} {i1}')
+			if Voronoi.debug: print('->V L',i1,T[L],T[l])
+			T.Q.insert(i1[0],i1[1],L,l)
+		i2 = T[r].Intersect(T[R])
+		#print(r,R,'->',i2)
+		if i2 is None or i2[0]>self.RightLimit:
+			if T.p[1]>T.ysweep and R==T.KL[-2] and T[R].isRightOf(self.RightLimit,T.p[1]):
+				self.RenewRightBoundary(T)
+				BoundaryUpdated=True
+			#else: print(R,T[R])
+		else:
+			if round(i2[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {T.p} {i2}')
+			if Voronoi.debug: print('->V R',i2,T[r],T[R])
+			T.Q.insert(i2[0],i2[1],r,R)
+		if BoundaryUpdated: self.ysweep = T.p[1]
+
+	def shrink(self,T):
+		x,y,l,r = T.p
+		#print('shrink4start',x,y,l,T[l],r,T[r])
+		n = T.KL.index(l)
+		if r!=T.KL[n+1]:
+			print('shrink4start',x,y,l,T[l],r,T[r])
+			print(T.KL)
+			print(T.KL[n],T[T.KL[n]])
+			print(T.KL[n+1],T[T.KL[n+1]])
+			print(T.KL[n+2],T[T.KL[n+2]])
+		assert r==T.KL[n+1]
+		L = T.KL[n-1]
+		R = T.KL[n+2]
+		#print(L,l,r,R,T)
+		#T.Q.deleteifhas(L)
+		#T.Q.deleteifhas(r)
+		direct,xb,yb=SweepTable.merge2one(T[l], T[r],x,y)
+		if T[l].direct==1 and xb<T[l].base[0] or T[r].direct==1 and xb<T[r].base[0] \
+		or T[l].direct==-1 and xb>T[l].base[0] or T[r].direct==-1 and xb>T[r].base[0] \
+		or T[l].direct==0 and yb<T[l].base[1] or T[r].direct==0 and yb<T[r].base[1]:
+			#print(color('Nothing',31,1),xb,yb,T[l].base,T[r].base)
+			return []
+		if Voronoi.debug: print('merge:',l,r,'->',(xb,yb))
+		count = next(T.counter)
+		T[count] = T.HalfEdge(T[l].p0,T[r].p1,direct,(xb,yb))
+		#print('HalfEdge',T[count])
+		T.KL[n] = count
+		T.KL.pop(n+1)
+		#print('comp',T[l],xb,yb)
+		T[l].complete(xb,yb)
+		#print('comp',T[r],xb,yb)
+		T[r].complete(xb,yb)
+		self.afterinsertbetween(T,L,R,count)
+		'''
+		i1 = T[L].Intersect(T[count])
+		if i1 is not None:
+			if round(i1[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {T.p} {i1}')
+			if Voronoi.debug: print('->V L',i1,T[L],T[count])
+			T.Q.insert(i1[0],i1[1],L,count)
+		i2 = T[count].Intersect(T[R])
+		if i2 is not None:
+			if round(i2[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {T.p} {i2}')
+			if Voronoi.debug: print('->V R',i2,T[count],T[R])
+			T.Q.insert(i2[0],i2[1],count,R)
+		'''
+		return l,r
+	#END_OF_def shrink(self):
 
 	def drawLine(self,e):
 		if np.isinf(e.summit[0]): print(e)
