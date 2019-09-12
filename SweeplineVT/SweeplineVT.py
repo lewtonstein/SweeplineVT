@@ -73,47 +73,74 @@ class HalfEdgeM(object):
 			if Voronoi.debug: print('isRightOf',self.p0,self.p1,self.direct,px,y0,cx)
 			return cx>px
 	def Intersect(self,Next):
-		#print(self.p1,Next.p0)
 		if self.p1!=Next.p0: sys.exit('ERROR: not consecutive')
 		if self.p0==(-1,-1): return None
 		if Next.p1==(-2,-2): return None
 		if self.direct<=0 and Next.direct>=0: return None #not Intersect
 		if self.p0[0]==self.p1[0]==Next.p1[0]:
-			if self.direct==Next.direct==1: return np.inf,(self.p0[1]+self.p1[1]+Next.p0[1]+Next.p1[1])/4
-			elif self.direct==Next.direct==-1: return -np.inf,(self.p0[1]+self.p1[1]+Next.p0[1]+Next.p1[1])/4
-			else: sys.exit('I donot know')
+			return None
+			#if self.direct==Next.direct==1: return np.inf,(self.p0[1]+self.p1[1]+Next.p0[1]+Next.p1[1])/4
+			#elif self.direct==Next.direct==-1: return -np.inf,(self.p0[1]+self.p1[1]+Next.p0[1]+Next.p1[1])/4
 		#1: a<0 b>0  2: a<0 b=0  3: a=0 b>0  4: a=0 b=0
 		ux,uy = self.p0
 		vx,vy = self.p1
 		wx,wy = Next.p1
 		if uy>wy: ux,uy,wx,wy=wx,wy,ux,uy
 		if vy>wy: vx,vy,wx,wy=wx,wy,vx,vy
+		if uy>vy: ux,uy,vx,vy=vx,vy,ux,uy
 		if Voronoi.debug: print('Intersect',(ux,uy),(vx,vy),(wx,wy))
 
 		if uy == vy and ux != vx and vy != wy:
 			cx = (ux + vx)/2
-			if wx==cx: return wx,wy
+			if wx==cx:
+				#print('1')
+				cy = (uy+wy)/2 - (ux-vx)**2/8./(wy-uy)
+				ytop=wy
 			else:
 				#solve[(x - u1)^2+(y - u2)^2=r2,(x-v1)^2+(y-u2)^2=r2, (x-w1)^2+(y-w2)^2=r2, x,y]
-				cy = (-ux*wx - vx*wx + wx**2 + wy**2 + ux*vx - uy**2)/2./(wy-uy)
-				d = np.sqrt(((ux-wx)**2+(uy-wy)**2)*((wx-vx)**2+(uy-wy)**2))/2./(wy-uy)
-				return cx,cy+d
-
-		a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
-		#print('lewton',a)
-		#if a<=0: return None #!!!!!!!!!!!!!!check
-		if a==0: return None #!!!!!!!!!!!!!!check
-		b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
-		b2 = (vx-wx)*(vx+wx)+(vy-wy)*(vy+wy)
-		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
-		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
-		d = np.sqrt((cx-ux)**2+(cy-uy)**2)
-		#if self.direct==1 and cx<=self.base[0] or Next.direct==1 and cx<=Next.base[0] \
-		#or self.direct==-1 and cx>=self.base[0] or Next.direct==-1 and cx>=Next.base[0]: return None
-		if self.direct==Next.direct==1 and cx<=min(self.base[0],Next.base[0]) \
-		or self.direct==Next.direct==-1 and cx>=max(self.base[0],Next.base[0]):
+				#cy = (-ux*wx - vx*wx + wx**2 + wy**2 + ux*vx - uy**2)/2./(wy-uy)
+				#print('2')
+				cy = (wy+uy)/2. +  (ux-wx)*(vx-wx)/2./(wy-uy)
+				r = np.sqrt(((ux-wx)**2+(uy-wy)**2)*((wx-vx)**2+(uy-wy)**2))/2./(wy-uy)
+				ytop=cy+r
+		elif wx==ux and wx!=vx:
+			cy = (wy+uy)/2
+			if vy==cy:
+				cx = (ux+vx)/2 + (uy-wy)**2/(ux-vx)/8.
+				r = ((uy-wy)**2+4*(ux-vx)**2)/8./abs(ux-vx)
+				#print('4')
+				ytop=cy+r
+			else:
+				cx = (ux+vx)/2 + (vy-wy)*(uy-vy)/(ux-vx)/2 # 2(x-(ux+vx)/2) / (vy-wy) = (uy-vy) / (ux-vx) #same angle
+				r = np.sqrt(((ux-vx)**2+(uy-vy)**2)*((wy-vy)**2+(ux-vx)**2))/2./abs(ux-vx)
+				#print('5')
+				ytop=cy+r
+		else:
+			a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
+			#print('lewton',a)
+			#if a<=0: return None #!!!!!!!!!!!!!!check
+			if a==0: return None #!!!!!!!!!!!!!!check
+			b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
+			b2 = (vx-wx)*(vx+wx)+(vy-wy)*(vy+wy)
+			cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
+			cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
+			r = np.sqrt((cx-ux)**2+(cy-uy)**2)
+			ytop=cy+r
+			#print('3')
+		#if self.direct==Next.direct==1 and cx<=min(self.base[0],Next.base[0]) \
+		#or self.direct==Next.direct==-1 and cx>=max(self.base[0],Next.base[0]):
+		#	return None
+		if self.direct==1 and round(cx,Voronoi.SLVround)<round(self.base[0],Voronoi.SLVround) \
+		or Next.direct==1 and round(cx,Voronoi.SLVround)<round(Next.base[0],Voronoi.SLVround) \
+		or self.direct==-1 and round(cx,Voronoi.SLVround)>round(self.base[0],Voronoi.SLVround) \
+		or Next.direct==-1 and round(cx,Voronoi.SLVround)>round(Next.base[0],Voronoi.SLVround):
+			#print(color('Nothing11',31,1),cx,cy,self.base,Next.base)
 			return None
-		return cx,cy+d
+		if self.direct==0 and round(cy,Voronoi.SLVround)<round(self.base[1],Voronoi.SLVround) \
+		or Next.direct==0 and round(cy,Voronoi.SLVround)<round(Next.base[1],Voronoi.SLVround):
+			#print(color('Nothing22',31,1),cx,cy,self.base,Next.base)
+			return None
+		return cx,ytop
 	def complete(self,xs,ys,echo=False):
 		#fill self.summit
 		xb,yb = self.base
@@ -282,7 +309,7 @@ class SweepTable(dict):
 		#print(x,y,x0,y0,'-->',xb,yb)
 		return direct,xb,yb
 
-	#def shrink(self): x,y,l,r = self.p n = self.KL.index(l) if r!=self.KL[n+1]: print(self.KL) print(self.KL[n],self[self.KL[n]]) print(self.KL[n+1],self[self.KL[n+1]]) print(self.KL[n+2],self[self.KL[n+2]]) assert r==self.KL[n+1] L = self.KL[n-1] R = self.KL[n+2] #print(L,l,r,R,self) #self.Q.deleteifhas(L) #self.Q.deleteifhas(r) direct,xb,yb=SweepTable.merge2one(self[l], self[r],x,y) if self[l].direct==self[r].direct==1 and xb<=min(self[l].base[0],self[r].base[0]) \ or self[l].direct==self[r].direct==-1 and xb>=max(self[l].base[0],self[r].base[0]): return [] if Voronoi.debug: print('merge:',l,r,'->',(xb,yb)) count = next(self.counter) self[count] = self.HalfEdge(self[l].p0,self[r].p1,direct,(xb,yb)) #print('HalfEdge',self[count]) self.KL[n] = count self.KL.pop(n+1) #print('comp',self[l],xb,yb) self[l].complete(xb,yb) #print('comp',self[r],xb,yb) self[r].complete(xb,yb) i1 = self[L].Intersect(self[count]) if i1 is not None: if round(i1[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i1}') if Voronoi.debug: print('->V L',i1,self[L],self[count]) self.Q.insert(i1[0],i1[1],L,count) i2 = self[count].Intersect(self[R]) if i2 is not None: if round(i2[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i2}') if Voronoi.debug: print('->V R',i2,self[count],self[R]) self.Q.insert(i2[0],i2[1],count,R) return l,r #END_OF_def shrink(self):
+	#def shrink(self): x,y,l,r = self.p n = self.KL.index(l) if r!=self.KL[n+1]: print(self.KL) print(self.KL[n],self[self.KL[n]]) print(self.KL[n+1],self[self.KL[n+1]]) print(self.KL[n+2],self[self.KL[n+2]]) assert r==self.KL[n+1] L = self.KL[n-1] R = self.KL[n+2] #print(L,l,r,R,self) #self.Q.deleteifhas(L) #self.Q.deleteifhas(r) direct,xb,yb=SweepTable.merge2one(self[l], self[r],x,y) if self[l].direct==self[r].direct==1 and xb<=min(self[l].base[0],self[r].base[0]) \ or self[l].direct==self[r].direct==-1 and xb>=max(self[l].base[0],self[r].base[0]): return [] if Voronoi.debug: print('merge:',l,r,'->',(xb,yb)) count = next(self.counter) self[count] = self.HalfEdge(self[l].p0,self[r].p1,direct,(xb,yb)) #print('HalfEdge',self[count]) self.KL[n] = count self.KL.pop(n+1) #print('comp',self[l],xb,yb) self[l].complete(xb,yb) #print('comp',self[r],xb,yb) self[r].complete(xb,yb) i1 = self[L].Intersect(self[count]) if i1 is not None: if round(i1[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i1}') if Voronoi.debug: print('->V L',i1,self[L],self[count]) self.Q.insert(i1[0],i1[1],L,count) i2 = self[count].Intersect(self[R]) if i2 is not None: if round(i2[1],Voronoi.SLVround)<=round(self.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {self.p} {i2}') if Voronoi.debug: print('->V R',i2,self[count],self[R]) self.Q.insert(i2[0],i2[1],count,R) return l,r 
 
 	#def RenewSideBoundary(self): y = self.p[1] #print(color('lt',31,1),self[self.KL[-2]],self.RightLimit,y,self.ysweep) todo = [] if y <= self.ysweep or len(self)<=2: return todo if self[self.KL[-2]].isRightOf(self.RightLimit,y): #if Voronoi.debug: print(color('Edge:',31,1),self[-2],self[self.KL[-2]]) assert self[-2].p0==self[self.KL[-2]].p1 u0,u1 = self[self.KL[-2]].p0 v0,v1 = self[self.KL[-2]].p1 assert u1!=v1 yb = (u0**2-2*u0*(self.RightLimit)+u1**2-v0**2+2*v0*(self.RightLimit)-v1**2)/2./(u1-v1) self[self.KL[-2]].complete(self.RightLimit,yb) todo.append([self.KL[-2],self[self.KL[-2]].copy()]) #maybe the VertexEvt to delete is just the p which has just been deleted from Q as the minimum. if self.p is not None and len(self.p)==4 and self.KL[-3]==self.p[2]: self.p = None print('WARNING no',self.p) #else: self.Q.deleteifhas(self.KL[-3]) self[-2] = self.pop(self.KL[-2]) self.KL.pop(-2) self[-2].p1 = (-2,-2) self[-2].direct = 1 if Voronoi.debug: print('-->',self[-2]) if not self[self.KL[1]].isRightOf(-0.5,y): #if Voronoi.debug: print(color('Edge:',31,1),self[-1],self[self.KL[1]],-0.5,y) assert self[-1].p1==self[self.KL[1]].p0 u0,u1 = self[self.KL[1]].p0 v0,v1 = self[self.KL[1]].p1 assert u1!=v1 yb = (u0**2-2*u0*(-0.5)+u1**2-v0**2+2*v0*(-0.5)-v1**2)/2./(u1-v1) self[self.KL[1]].complete(-0.5,yb) todo.append([self.KL[1],self[self.KL[1]].copy()]) if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]: self.p = None print('WARNING no',self.p) #else: self.Q.deleteifhas(self.KL[1]) self[-1] = self.pop(self.KL[1]) self.KL.pop(1) self[-1].p0 = (-1,-1) self[-1].direct = -1 #if Voronoi.debug: print('-->:',self[-1]) self.ysweep = y return todo #END_OF_def RenewSideBoundary(self):
 
@@ -358,7 +385,6 @@ class Voronoi(object):
 		"""
 		#StartTime=time.time()
 		self.FileName = kwargs.pop('FileName','tmp')
-		print(color('Voronoi Construction: '+self.FileName,34,1))
 		self.ToCalArea = kwargs.pop('calarea',False)
 		self.ToCalPVD = kwargs.pop('calpvd',False)
 		self.ToCalAdj = kwargs.pop('caladj',False)
@@ -409,13 +435,18 @@ class Voronoi(object):
 				self.ImgSizeY = int(yhigh+0.5)
 				self.RightLimit=self.ImgSizeX-0.5
 				self.TopLimit=self.ImgSizeY-0.5
+				#np.savetxt('try',events)
 				#https://docs.python.org/3/tutorial/floatingpoint.html
 				#Some float numbers do not have exact representations in binary floating point, e.g., float.hex(0.1): '0x1.999999999999ap-4' 0.1!=1-0.9. Luckily int-0.5 seems OK, float.hex(0.5): '0x1.0000000000000p-1'.
 			else:
-				xlow = border['xlow']
-				ylow = border['ylow']
-				xhigh = border['xhigh']
-				yhigh = border['yhigh']
+				xlow = np.floor(np.min(events[:,0]))-1
+				ylow = np.floor(np.min(events[:,1]))-1
+				xhigh = np.ceil(np.max(events[:,0]))+1
+				yhigh = np.ceil(np.max(events[:,1]))+1
+				xlow = border.get('xlow',xlow)
+				ylow = border.get('ylow',ylow)
+				xhigh = border.get('xhigh',xhigh)
+				yhigh = border.get('yhigh',yhigh)
 				self.OffSetX = -0.5-xlow #shift the lower border to -0.5
 				events[:,0] += self.OffSetX
 				xhigh += self.OffSetX
@@ -427,11 +458,11 @@ class Voronoi(object):
 				self.RightLimit = xhigh
 				self.TopLimit = yhigh
 				#print(f'Set image size: {xlow:g}~{xhigh:g} {ylow:g}~{yhigh:g}')
+			print(color('Voronoi Construction: '+self.FileName,34,1),end=' ')
+			print(f"OffSet: {self.OffSetX} {self.OffSetY} Rescale: {self.scale} ImgSize: {self.ImgSizeX} {self.ImgSizeY}")
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
 				exit()
-			if Voronoi.debug:
-				print(f"OffSet: {self.OffSetX} {self.OffSetY} Rescale: {self.scale} ImgSize: {self.ImgSizeX} {self.ImgSizeY}")
 
 			self.MakeIntImage=kwargs.pop('MakeIntImage',False)
 			if self.MakeIntImage:
@@ -510,6 +541,7 @@ class Voronoi(object):
 		if self.Mode=='event':
 			with open(self.FileName+'_VT.dat','w') as fout:
 				print('#'+json.dumps({'xlow':(-0.5-self.OffSetX)/self.scale,'ylow':(-0.5-self.OffSetY)/self.scale,'xhigh':(self.RightLimit-self.OffSetX)/self.scale,'yhigh':(self.TopLimit-self.OffSetY)/self.scale,'scale':self.scale}),file=fout)
+				#for debug: d=np.array([[e.base[0],e.base[1],e.summit[0],e.summit[1],e.p0[0],e.p0[1],e.p1[0],e.p1[1]] for e in self.Edges.values() if e.summit is not None])
 				d=np.array([[e.base[0],e.base[1],e.summit[0],e.summit[1],e.p0[0],e.p0[1],e.p1[0],e.p1[1]] for e in self.Edges.values() if e.summit is not None])-[self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY]
 				np.savetxt(fout,np.hstack((np.arange(1,len(d)+1).reshape(len(d),1),d/self.scale)),fmt="%d	%.9g %.9g %.9g %.9g	%.9g %.9g %.9g %.9g")
 				print('>>',fout.name)
@@ -745,7 +777,7 @@ class Voronoi(object):
 		#print('shrink4start',x,y,l,T[l],r,T[r])
 		n = T.KL.index(l)
 		if r!=T.KL[n+1]:
-			print('shrink4start',x,y,l,T[l],r,T[r])
+			print('shrink4starterr',x,y,l,T[l],r,T[r])
 			print(T.KL)
 			print(T.KL[n],T[T.KL[n]])
 			print(T.KL[n+1],T[T.KL[n+1]])
@@ -757,10 +789,15 @@ class Voronoi(object):
 		#T.Q.deleteifhas(L)
 		#T.Q.deleteifhas(r)
 		direct,xb,yb=SweepTable.merge2one(T[l], T[r],x,y)
-		if T[l].direct==1 and xb<T[l].base[0] or T[r].direct==1 and xb<T[r].base[0] \
-		or T[l].direct==-1 and xb>T[l].base[0] or T[r].direct==-1 and xb>T[r].base[0] \
-		or T[l].direct==0 and yb<T[l].base[1] or T[r].direct==0 and yb<T[r].base[1]:
-			#print(color('Nothing',31,1),xb,yb,T[l].base,T[r].base)
+		if T[l].direct==1 and round(xb,Voronoi.SLVround)<round(T[l].base[0],Voronoi.SLVround) \
+		or T[r].direct==1 and round(xb,Voronoi.SLVround)<round(T[r].base[0],Voronoi.SLVround) \
+		or T[l].direct==-1 and round(xb,Voronoi.SLVround)>round(T[l].base[0],Voronoi.SLVround) \
+		or T[r].direct==-1 and round(xb,Voronoi.SLVround)>round(T[r].base[0],Voronoi.SLVround):
+			#print(color('Nothing1',31,1),xb,yb,T[l].base,T[r].base)
+			return []
+		if T[l].direct==0 and round(yb,Voronoi.SLVround)<round(T[l].base[1],Voronoi.SLVround) \
+		or T[r].direct==0 and round(yb,Voronoi.SLVround)<round(T[r].base[1],Voronoi.SLVround):
+			#print(color('Nothing2',31,1),xb,yb,T[l].base,T[r].base)
 			return []
 		if Voronoi.debug: print('merge:',l,r,'->',(xb,yb))
 		count = next(T.counter)
@@ -1007,10 +1044,13 @@ class Voronoi(object):
 			N = self.pmap[tuple(P0[n-P0.shape[0]])]
 			EdgePoint.append(N)
 			EpR[N] = EpR.get(N,[])+[EE[n,1]]
+			#print('aa',N,EE[n],self.Px[N-1],self.Py[N-1])
 			if Voronoi.debug: print('line(%.2f,%.2f,%.2f,%.2f)' %(self.Py[N-1]+1,self.Px[N-1]+1,EE[n,1]+1,EE[n,0]+1), file=EPfile)
 			N = self.pmap[tuple(P1[n-P0.shape[0]])]
 			EdgePoint.append(N)
 			EpR[N] = EpR.get(N,[])+[EE[n,1]]
+			#print('bb',N,EE[n],self.Px[N-1],self.Py[N-1])
+			#if N==3843: print( P0[n-len(P0)],P1[n-len(P0)],list(self.Edges.values())[n-len(P0)]) #!!!
 			if Voronoi.debug: print('line(%.2f,%.2f,%.2f,%.2f)' %(self.Py[N-1]+1,self.Px[N-1]+1,EE[n,1]+1,EE[n,0]+1), file=EPfile)
 			VyR[0] = min(VyR[0],EE[n,1])
 			VyR[1] = max(VyR[1],EE[n,1])
@@ -1100,6 +1140,7 @@ class Voronoi(object):
 					EpT[N].append(-0.5)
 				else:
 					print('EpL',x,y,EpL[N])
+					print('ERROR--------------------------')
 					raise RuntimeError('ERROR: Edge point Left')
 		for N in EpR:
 			x,y = self.Px[N-1],self.Py[N-1]
@@ -1129,17 +1170,17 @@ class Voronoi(object):
 					EpR[N].append(self.TopLimit)
 					EpT[N].append(self.RightLimit)
 				else:
-					print('EpR',x,y,EpR[N])
-					'''
+					print('EpR',x,y,N,EpR[N])
+					#'''
 					n= np.where((P0[:,0]==x)&(P0[:,1]==y))
 					if len(n)>0:
 						n=n[0][0]
-						print('P0',P0[n,0],EE[n],EE[n-P0.shape[0]])
+						print('P0',n,P0[n],EE[n],EE[n-P0.shape[0]])
 					n= np.where((P1[:,0]==x)&(P1[:,1]==y))
 					if len(n)>0:
 						n=n[0][0]
-						print('P1',P1[n,0],EE[n],EE[n-P1.shape[0]])
-					'''
+						print('P1',n,P1[n],EE[n],EE[n-P1.shape[0]])
+					#'''
 					raise RuntimeError('ERROR: Edge point Right')
 		########################################################################
 		#Save edge triangles in E0e,E1e,Pe,Ee. Add their areas to self.Amap

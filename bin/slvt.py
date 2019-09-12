@@ -62,7 +62,7 @@ NOTE
 		exit()
 	Options={}
 	S_opt='dDAPTSMhs'
-	L_opt=['calpvd','calarea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','border=','resolution=','accuracy=','makeimage','help','silent']
+	L_opt=['calpvd','calarea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale']
 	opts,args=getopt.getopt(sys.argv[1:],S_opt,L_opt)
 	if len(args)>0:
 		for arg in args:
@@ -93,6 +93,8 @@ NOTE
 			Options['caldst']=True
 		elif opt == '--silent' or opt == '-s':
 			warnings.simplefilter('ignore')
+		elif opt == '--noautoscale':
+			Options['autoscale']=False
 		elif opt == '--makeimage':
 			Options['MakeIntImage']=True
 		elif opt == '--rmedgepoint':
