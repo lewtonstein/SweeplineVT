@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="SweeplineVT",
-    version="0.0.6",
+    version="0.0.7",
     author="Teng Liu",
     author_email="lewtonstein@gmail.com",
     description="Voronoi Tessellation using Sweep-line algorithm",
