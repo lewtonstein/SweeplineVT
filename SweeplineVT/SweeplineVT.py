@@ -38,6 +38,8 @@ class HalfEdgeM(object):
 			self.hist = [None,None]
 		self.twin = twin
 		self.summit = summit
+		#self.length = None
+		#self.PPdist = None
 	def __str__(self):
 		return 'p0:'+str(self.p0)+' p1:'+str(self.p1)+' dir:'+str(self.direct)+' b:'+str(self.base)+' s:'+str(self.summit)+' hist:'+str(self.hist)
 	def isRightOf(self,px,y0):
@@ -378,14 +380,15 @@ class Voronoi(object):
 		"""
 		image: a 2D array in which >0 means non-empty.
 		events: coordinates of points, 2D array with shape (# of points, 2).
-		if calarea=True, calculate area of each cell.
+		if calArea=True, calculate area of each cell.
 		if calCentroid=True, calculate the centroid of each cell.
 		Resolution: int, number of decimals to round on the input event coordinates
 			default=3. But no rounding on input when "calCentroid".
 		"""
 		#StartTime=time.time()
+		if kwargs.get('Silent',False): warnings.simplefilter('ignore')
 		self.FileName = kwargs.pop('FileName','tmp')
-		self.ToCalArea = kwargs.pop('calarea',False)
+		self.ToCalArea = kwargs.pop('calArea',False)
 		self.ToCalPVD = kwargs.pop('calpvd',False)
 		self.ToCalAdj = kwargs.pop('caladj',False)
 		self.ToCalDst = kwargs.get('caldst',False)
@@ -393,13 +396,20 @@ class Voronoi(object):
 		self.ToCalCtd = kwargs.get('calCentroid',False)
 		self.ToCum2D = kwargs.get('cum2d',False)
 		self.ToCalDel = kwargs.pop('Delaunay',False)
-		Hdr = kwargs.get('Hdr',None)
+		self.Hdr = kwargs.get('Hdr',None)
 		self.OffSetX=0
 		self.OffSetY=0
 		self.scale=1
 		if image is not None: #integer position
 			self.Mode='image'
 			assert events is None
+			if kwargs.pop('CleanFilledBorder',False):
+				n0=np.where(np.sum(image>0,axis=0)<image.shape[0])[0]
+				n1=np.where(np.sum(image>0,axis=1)<image.shape[1])[0]
+				if n1[0]-1>0: image[:n1[0]-1,:]=0
+				if n1[-1]+2<image.shape[0]-1: image[n1[-1]+2:,:]=0
+				if n0[0]-1>0: image[:,:n0[0]-1]=0
+				if n0[-1]+2<image.shape[1]-1: image[:,n0[-1]+2:]=0
 			self.ImgSizeX,self.ImgSizeY = image.shape
 			self.RightLimit=self.ImgSizeX-0.5
 			self.TopLimit=self.ImgSizeY-0.5
@@ -479,11 +489,11 @@ class Voronoi(object):
 						pmap[int(x+0.5),int(y+0.5)] += 1
 						#print("image;circle(%.2f,%.2f,0.3) # color=red;line(%.2f,%.2f,%d,%d) # color=red" % (y+1,x+1, y+1,x+1, int(y+0.5)+1,int(x+0.5)+1), file=freg)
 						print(f"image;circle({y+1:.2f},{x+1:.2f},0.3) # color=red", file=freg)
-				if Hdr is None: Hdr=fits.Header()
-				Hdr.update({'OffSetX':self.OffSetX})
-				Hdr.update({'OffSetY':self.OffSetY})
-				Hdr.update({'Scale':self.scale})
-				fits.writeto(self.FileName+'_image.fits',pmap,Hdr,overwrite=True)
+				if self.Hdr is None: self.Hdr=fits.Header()
+				self.Hdr.update({'OffSetX':self.OffSetX})
+				self.Hdr.update({'OffSetY':self.OffSetY})
+				self.Hdr.update({'Scale':self.scale})
+				fits.writeto(self.FileName+'_image.fits',pmap,self.Hdr,overwrite=True)
 				print('>> '+self.FileName+'_image.fits')
 				print('>> '+self.FileName+'_points.reg')
 			Resolution=kwargs.pop('Resolution',3)
@@ -531,14 +541,14 @@ class Voronoi(object):
 		if self.Mode=='image' or self.MakeIntImage:
 			d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1 #-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
 			open(self.FileName+'.reg','w').write('image\n')
-			np.savetxt(self.FileName+'.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}")
+			np.savetxt(self.FileName+'.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}",header='image',comments='')
 			print('>> '+self.FileName+'.reg')
 			if self.ToCalDel and False:
 				d = np.array([[e.p0[1],e.p0[0],e.p1[1],e.p1[0],e.base[1],e.base[0],e.summit[1],e.summit[0]] for e in self.Edges.values() if e.summit is not None])+1-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
 				open(self.FileName+'_Delaunay.reg','w').write('image\n')
 				np.savetxt(self.FileName+'_Delaunay.reg',d,fmt="line(%g,%g,%g,%g) # tag={%.3f,%.3f,%.3f,%.3f}")
 				print('>> '+self.FileName+'_Delaunay.reg')
-		if self.Mode=='event':
+		if self.Mode=='event' or self.Mode=='image':
 			with open(self.FileName+'_VT.dat','w') as fout:
 				print('#'+json.dumps({'xlow':(-0.5-self.OffSetX)/self.scale,'ylow':(-0.5-self.OffSetY)/self.scale,'xhigh':(self.RightLimit-self.OffSetX)/self.scale,'yhigh':(self.TopLimit-self.OffSetY)/self.scale,'scale':self.scale}),file=fout)
 				#for debug: d=np.array([[e.base[0],e.base[1],e.summit[0],e.summit[1],e.p0[0],e.p0[1],e.p1[0],e.p1[1]] for e in self.Edges.values() if e.summit is not None])
@@ -553,10 +563,10 @@ class Voronoi(object):
 			dmap[:,:] = dmap[self.Px,self.Py][self.pmap[self.pmap>0]-1].reshape(self.ImgSizeX,self.ImgSizeY)
 			#vmap is not uniquely defined, thus by now the uncertainty is transfered into dmap
 			print('>> '+self.FileName+'_dst.fits')
-			fits.writeto(self.FileName+'_dst.fits',dmap,Hdr,overwrite=True)
+			fits.writeto(self.FileName+'_dst.fits',dmap,self.Hdr,overwrite=True)
 		if self.ToCalPVD:
 			print('>> '+self.FileName+'_pvd.fits')
-			fits.writeto(self.FileName+'_pvd.fits',self.pmap,Hdr,overwrite=True)
+			fits.writeto(self.FileName+'_pvd.fits',self.pmap,self.Hdr,overwrite=True)
 		if self.ToCalArea and not self.ToCalCtd:
 			if type(self.Amap) is dict:
 				with open(self.FileName+'_area.dat','w') as fout:
@@ -565,7 +575,7 @@ class Voronoi(object):
 					print('>>',fout.name)
 			else:
 				print('>> '+self.FileName+'_area.fits')
-				fits.writeto(self.FileName+'_area.fits',self.Amap,Hdr,overwrite=True)
+				fits.writeto(self.FileName+'_area.fits',self.Amap,self.Hdr,overwrite=True)
 		if self.ToCalCtd:
 			if type(self.Amap) is dict:
 				with open(self.FileName+'_ctd.dat','w') as fout:
@@ -907,6 +917,8 @@ class Voronoi(object):
 			P1 = np.int32([e.p1 for e in self.Edges.values()])
 		E0 = np.array([e.base   for e in self.Edges.values()]).round(Voronoi.SLVround)
 		E1 = np.array([e.summit for e in self.Edges.values()]).round(Voronoi.SLVround)
+		#KE = list(self.Edges.keys())
+		#If keys, values and items views are iterated over with no intervening modifications to the dictionary, the order of items will directly correspond.
 		for n in range(len(E0)):
 			if (E0[n,0],E1[n,0]) in ((-0.5,self.RightLimit),(self.RightLimit,-0.5)) \
 			or (E0[n,1],E1[n,1]) in ((-0.5,self.TopLimit),(self.TopLimit,-0.5)):
@@ -917,11 +929,14 @@ class Voronoi(object):
 
 		#First calculate "Edge area list"
 		#"Edge area": area of the triangle made of each edge and one of its according points
-		Earea = DisPPList(E0,E1) * self.PPdis / 4.
+		length = DisPPList(E0,E1) 
+		Earea = length * self.PPdis / 4.
 
 		#Then calculate Parea
 		#"Point area": area of each point (cell)
 		for n in np.arange(P0.shape[0]):
+			#self.Edges[KE[n]].length = length[n]
+			#self.Edges[KE[n]].PPdist = self.PPdis[n]
 			self.Amap[tuple(P0[n])] += Earea[n]
 			self.Amap[tuple(P1[n])] += Earea[n]
 			if self.ToCalCtd:

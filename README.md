@@ -53,7 +53,7 @@ from SweeplineVT import Voronoi
 import pylab as pl
 x=np.random.random(size=10)
 y=np.random.random(size=10)
-vor=Voronoi(events=np.vstack((x,y)).T,calarea=True,autoscale=False)
+vor=Voronoi(events=np.vstack((x,y)).T,calArea=True,autoscale=False)
 Area,ind,cts=vor.getarealist()
 Area/=np.array(cts)
 pl.hist(Area)
@@ -73,7 +73,7 @@ pl.hist(Area)
  + 6: area of the cell
  + 7: site duplication number (>1 means duplicated)
 
-* With "--calarea", {FileName}_area.dat: each item corresponds to one cell. The 6 columns are:
+* With "--calArea", {FileName}_area.dat: each item corresponds to one cell. The 6 columns are:
  + 1: index of cell / site.
  + 2-3: Voronoi site of the cell
  + 4: area of the cell

@@ -28,8 +28,19 @@ for l in d:
 	if Step:
 		input('Enter to continue')
 		pl.draw()
-	pl.plot([l[1],l[3]],[l[2],l[4]],'b-')
+	pl.plot([l[1],l[3]],[l[2],l[4]],'b-',lw=1)
 	pl.plot([l[5],l[7]],[l[6],l[8]],'ro')
+if d.shape[1]==11:
+	dist2=d[:,9]**2+d[:,10]**2
+	l=d[np.argsort(dist2)[-1]]
+	pl.plot([l[1],l[3]],[l[2],l[4]],'-',lw=3)
+	pl.plot([l[5],l[7]],[l[6],l[8]],'C2v',ms=8,lw=3)
+	l=d[np.argsort(dist2)[-2]]
+	pl.plot([l[1],l[3]],[l[2],l[4]],'-',lw=3)
+	pl.plot([l[5],l[7]],[l[6],l[8]],'C2+',ms=8,lw=3)
+	l=d[np.argsort(dist2)[-3]]
+	pl.plot([l[1],l[3]],[l[2],l[4]],'-',lw=3)
+	pl.plot([l[5],l[7]],[l[6],l[8]],'C2x',ms=8,lw=3)
 if Step: pl.ioff()
 if len(sys.argv)>2 and os.path.isfile(sys.argv[2]): 
 	ctd=np.loadtxt(sys.argv[2])

@@ -46,7 +46,7 @@ The input File can be:
 		It should be an ASCII file containing the point coordinates in its first two columns.
 
 OPTIONS
-	-A,--calarea		Calculate cell Areas
+	-A,--calArea		Calculate cell Areas
 	-C,--calCentroid	Calculate cell centroid
 	-M,--makeCVT	Make Centroidal Voronoi Tessellation
 	--border x1,x2,y1,y2	Set image border in case of events input.
@@ -62,7 +62,7 @@ NOTE
 		exit()
 	Options={}
 	S_opt='dDAPTSMhs'
-	L_opt=['calpvd','calarea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale']
+	L_opt=['calpvd','calArea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','CleanFilledBorder','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale']
 	opts,args=getopt.getopt(sys.argv[1:],S_opt,L_opt)
 	if len(args)>0:
 		for arg in args:
@@ -82,8 +82,8 @@ NOTE
 			Options['calDelaunay']=True
 		elif opt == '--calTriangle' or opt == '-T':
 			Options['calTriangle']=True
-		elif opt == '--calarea' or opt == '-A':
-			Options['calarea']=True
+		elif opt == '--calArea' or opt == '-A':
+			Options['calArea']=True
 		elif opt == '--calCentroid' or opt == '-C':
 			Options['calCentroid']=True
 		elif opt == '--makeCVT' or opt == '-M':
@@ -92,6 +92,7 @@ NOTE
 		elif opt == '--caldst' or opt == '-S':
 			Options['caldst']=True
 		elif opt == '--silent' or opt == '-s':
+			Options['Silent']=True
 			warnings.simplefilter('ignore')
 		elif opt == '--noautoscale':
 			Options['autoscale']=False
@@ -99,6 +100,8 @@ NOTE
 			Options['MakeIntImage']=True
 		elif opt == '--rmedgepoint':
 			Options['RemoveEdgePoint']=True
+		elif opt == '--CleanFilledBorder':
+			Options['CleanFilledBorder']=True
 		elif opt == '--border':
 			try:
 				arg = arg.split(',')
@@ -142,7 +145,7 @@ NOTE
 		if len(InputFile.rsplit('.',1))>1 and InputFile.rsplit('.',1)[1] == 'fits':
 			data,hdr=fits.getdata(InputFile,header=True)
 			Options['Hdr']=hdr
-			vor=Voronoi(imag=data,**Options)
+			vor=Voronoi(image=data,**Options)
 		else: #a file which store the coordinates of points in the first two columns
 			data=np.loadtxt(InputFile)
 			vor=Voronoi(events=data,**Options)
