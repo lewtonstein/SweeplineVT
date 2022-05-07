@@ -10,6 +10,7 @@ import heapq,json
 import itertools
 from copy import copy
 import time,sys,warnings
+from tqdm import tqdm
 def _ltshowwarning(message, category, filename, lineno, file=None, line=None):
 	if category==UserWarning: print('\033[33mWARNING\033[0m:',message)
 	else:
@@ -322,6 +323,7 @@ class EventQueue(object):
 	def __init__(self,Px,Py):
 		if Px.shape==Py.shape==(Px.size,):
 			self.S = np.zeros((Px.size,2))
+			self.Stotal = Px.size
 			self.S[:,0] = Py
 			self.S[:,1] = Px
 			self.SMin = 0
@@ -419,6 +421,7 @@ class Voronoi(object):
 		elif events is not None: #float position
 			self.Mode='event'
 			assert events.shape[1] >= 2
+			#events=events[:,:2] #2022.05.07
 			if self.ToCalPVD: sys.exit('--calpvd not supported in case of events (as opposed to image) input')
 			if self.ToCalDst: sys.exit('--caldst not supported in case of events (as opposed to image) input')
 
@@ -499,7 +502,7 @@ class Voronoi(object):
 			Resolution=kwargs.pop('Resolution',3)
 			if not self.ToCalCtd:
 				events[:,:2]=np.round(events[:,:2],Resolution)
-			tmp,ind,cts=np.unique(events[:,2::-1],return_index=True,return_counts=True,axis=0)
+			tmp,ind,cts=np.unique(events[:,1::-1],return_index=True,return_counts=True,axis=0)
 			if tmp.shape[0]!=events.shape[0]:
 				warnings.warn(color("found %d duplicated points" % (events.shape[0]-len(tmp)),31,1))
 			self.Py,self.Px = tmp[:,0],tmp[:,1]
@@ -597,10 +600,12 @@ class Voronoi(object):
 		else: print('later')
 
 	def Construct(self,**kwargs):
-		StartTime=time.time()
+		if Voronoi.debug: StartTime=time.time()
 		T = SweepTable(self.Px,self.Py,self.RightLimit,self.TopLimit)
 		Q = T.Q
+		pbar = tqdm(total=Q.Stotal-1)
 		T.p = Q.delMin()
+		ndone=1
 		while T.p is not None:
 			#for k,e in T.RenewSideBoundary(): #???????
 			#	self.Edges[k] = e
@@ -669,6 +674,10 @@ class Voronoi(object):
 			#if Voronoi.debug: print('T',T)
 			#if Voronoi.debug: print(color('Q',31,1),Q)
 			T.p = Q.delMin()
+			if Q.SMin>ndone:
+				if (Q.SMin-ndone)*100>Q.Stotal: pbar.update(Q.SMin-ndone)
+				ndone=Q.SMin
+		pbar.close()
 		#END_OF_while p is not None:
 		T.pop(-1)
 		T.pop(-2)

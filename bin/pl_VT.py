@@ -15,7 +15,7 @@ if '-s' in sys.argv:
 	pl.ion()
 else: Step=False
 
-VTfile=sys.argv[1]
+if len(sys.argv)>1: VTfile=sys.argv[1]
 with open(VTfile,'r') as fin:
 	l=fin.readline()
 	h=json.loads(l.strip('#'))
