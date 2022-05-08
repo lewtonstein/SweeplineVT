@@ -610,6 +610,7 @@ class Voronoi(object):
 			#for k,e in T.RenewSideBoundary(): #???????
 			#	self.Edges[k] = e
 			if T.p is None: #p is deleted during renewing side boundary edges.
+				print('lksjlkfjdslkjfdslkjfdslk')
 				pass
 			elif len(T.p)==2: #Site Event
 				if Voronoi.debug: print('SiteEvent:',T.p)
@@ -677,7 +678,7 @@ class Voronoi(object):
 			if Q.SMin>ndone:
 				if (Q.SMin-pbar.n-1)*100>Q.Stotal: pbar.update(Q.SMin-ndone)
 				ndone=Q.SMin
-		pbar.update()
+		if pbar.total>pbar.n: pbar.update(pbar.total-pbar.n)
 		pbar.close()
 		#END_OF_while p is not None:
 		T.pop(-1)
