@@ -675,7 +675,7 @@ class Voronoi(object):
 			#if Voronoi.debug: print(color('Q',31,1),Q)
 			T.p = Q.delMin()
 			if Q.SMin>ndone:
-				if (Q.SMin-pbar.n)*100>Q.Stotal: pbar.update(Q.SMin-ndone)
+				if (Q.SMin-pbar.n-1)*100>Q.Stotal: pbar.update(Q.SMin-ndone)
 				ndone=Q.SMin
 		pbar.update()
 		pbar.close()
