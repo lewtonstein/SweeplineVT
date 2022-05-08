@@ -677,6 +677,7 @@ class Voronoi(object):
 			if Q.SMin>ndone:
 				if (Q.SMin-pbar.n)*100>Q.Stotal: pbar.update(Q.SMin-ndone)
 				ndone=Q.SMin
+		pbar.update()
 		pbar.close()
 		#END_OF_while p is not None:
 		T.pop(-1)
