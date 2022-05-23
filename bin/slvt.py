@@ -187,7 +187,7 @@ NOTE
 		vor.OffSetY=yoff
 		vor.saveresults()
 
-#import profile
+import profile
 if __name__ == '__main__':
-	#profile.run('main()')
-	main()
+	profile.run('main()')
+	#main()
