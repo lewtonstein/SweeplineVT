@@ -11,6 +11,7 @@ import itertools
 from copy import copy
 import time,sys,warnings
 from tqdm import tqdm
+from numba import jit,boolean
 def _ltshowwarning(message, category, filename, lineno, file=None, line=None):
 	if category==UserWarning: print('\033[33mWARNING\033[0m:',message)
 	else:
@@ -22,9 +23,10 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #p<q if py<qy or py=qy and px<qx
 #vertical,upward: y++
 #horizontal,right: x++
+
 class HalfEdgeM(object):
-	RightLimit=0
-	TopLimit=0
+	#RightLimit=0
+	#TopLimit=0
 	def __init__(self,p0,p1,direct,base,twin=None,summit=None):
 		#if p0[1]<p1[1] or p0[1]==p1[1] and p0[0]<p1[0]:
 		#	#the 2 points on 2 sides, p0 < p1
@@ -34,16 +36,58 @@ class HalfEdgeM(object):
 		self.base = base
 		#history test, to save time
 		if self.direct == 0:
-			self.hist = (self.p0[0]+self.p1[0])/2.
+			self.hist = ((self.p0[0]+self.p1[0])/2.,np.inf)
 		else:
-			self.hist = [None,None]
+			self.hist = (-np.inf,np.inf)
 		self.twin = twin
 		self.summit = summit
 		#self.length = None
 		#self.PPdist = None
 	def __str__(self):
 		return 'p0:'+str(self.p0)+' p1:'+str(self.p1)+' dir:'+str(self.direct)+' b:'+str(self.base)+' s:'+str(self.summit)+' hist:'+str(self.hist)
+
+	@staticmethod
+	@jit(nopython=True)
+	def ItisRightOf(self_p0,self_p1,self_direct,self_hist,px,y0,Voronoi_SLVround,Voronoi_debug=False):
+		#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
+		#(px,y0) is a site event, so y0 is the current position of sweep line
+		#Each position of the sweep line defines a circle crossing two neighboring sites (self_p0 and self_p1) and touching the sweep line at the top. As y0 grows, the center of the circle (cx,y0-r) traces the edge.
+		#(the method from the paper doesn't work, so I use mine)
+		#Input the following expression in http://www.wolframalpha.com/
+		#solve[(x-u0)^2+(y-u1)^2=r^2,(x-v0)^2+(y-v1)^2=r^2,y0-y=r,x,y,r]
+		#to get cx as a function of self_p0, self_p1, y0
+		#There are two solutions, indicating the two crossing points of two nerghboring parabolas
+		#The first crossing point (the one nearer to the flatter parabola) is what we want.
+		if self_p0[0]==-1 and self_p0[1]==-1: return False
+		if self_p1[0]==-2 and self_p1[1]==-2: return True
+		if self_direct == 0:
+			return self_hist[0]>px
+		else:
+			if self_hist[0] == y0:
+				#print('hist',y0,self_hist)
+				cx = self_hist[1]
+			else:
+				if self_p1[1]>self_p0[1]: u,v = self_p1,self_p0
+				else: v,u = self_p1,self_p0
+				#print(u,v,y0)
+				if u[1]>y0:
+					print('Error u1>y0',u[0],u[1],v[0],v[1],px,y0)
+					raise RuntimeError('Error u1>y0')
+				if round(u[1],Voronoi_SLVround)==round(v[1],Voronoi_SLVround): cx = (u[0]+v[0])/2.
+				elif round(u[1],Voronoi_SLVround)==round(y0,Voronoi_SLVround): cx = u[0]
+				elif u[0]==v[0]==px: cx=np.inf*self_direct
+				else:
+					insqrt = (u[1]*v[1]-u[1]*y0-v[1]*y0+y0*y0)*(u[0]*u[0]-2*u[0]*v[0]+u[1]*u[1]-2*u[1]*v[1]+v[0]*v[0]+v[1]*v[1])
+					cx = (self_direct*np.sqrt(insqrt)-u[0]*v[1]+u[0]*y0+u[1]*v[0]-v[0]*y0)/(u[1]-v[1])
+					if insqrt<0: print('Error sqrt<0',insqrt,u[0],u[1],v[0],v[1],px,y0,cx)
+				if not np.isinf(cx): self_hist = [y0,cx]
+			if Voronoi_debug: print('isRightOf',self_p0,self_p1,self_direct,px,y0,cx)
+			return cx>px
 	def isRightOf(self,px,y0):
+		#print(self.p0,self.p1,self.direct,type(self.hist[0]),type(px),type(y0))
+		return self.ItisRightOf(self.p0,self.p1,self.direct,self.hist,px,y0,Voronoi.SLVround,Voronoi.debug)
+
+	def oldisRightOf(self,px,y0):
 		#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
 		#(px,y0) is a site event, so y0 is the current position of sweep line
 		#Each position of the sweep line defines a circle crossing two neighboring sites (self.p0 and self.p1) and touching the sweep line at the top. As y0 grows, the center of the circle (cx,y0-r) traces the edge.
@@ -55,7 +99,7 @@ class HalfEdgeM(object):
 		#The first crossing point (the one nearer to the flatter parabola) is what we want.
 		if self.p0 == (-1,-1) : return False
 		if self.p1 == (-2,-2): return True
-		if self.direct == 0: return self.hist>px
+		if self.direct == 0: return self.hist[0]>px
 		else:
 			if self.hist[0] == y0:
 				#print('hist',y0,self.hist)

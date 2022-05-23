@@ -9,6 +9,8 @@ from astropy.io import fits
 import json
 from SweeplineVT import Voronoi
 import time,sys,warnings,os,getopt
+import SweeplineVT
+print(SweeplineVT.__file__)
 
 def main():
 	#	Notice the input coordinate is taken as in Python (image: 0~x-1,0~y-1; event: -0.5~x-0.5,-0.5~y-0.5)
