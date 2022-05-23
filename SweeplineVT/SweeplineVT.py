@@ -24,7 +24,97 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #vertical,upward: y++
 #horizontal,right: x++
 
+@jit(nopython=True,cache=True,nogil=True)
+def ItisRightOf(self_p0,self_p1,self_direct,self_hist,px,y0,Voronoi_SLVround,Voronoi_debug=False):
+	#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
+	#(px,y0) is a site event, so y0 is the current position of sweep line
+	#Each position of the sweep line defines a circle crossing two neighboring sites (self_p0 and self_p1) and touching the sweep line at the top. As y0 grows, the center of the circle (cx,y0-r) traces the edge.
+	#(the method from the paper doesn't work, so I use mine)
+	#Input the following expression in http://www.wolframalpha.com/
+	#solve[(x-u0)^2+(y-u1)^2=r^2,(x-v0)^2+(y-v1)^2=r^2,y0-y=r,x,y,r]
+	#to get cx as a function of self_p0, self_p1, y0
+	#There are two solutions, indicating the two crossing points of two nerghboring parabolas
+	#The first crossing point (the one nearer to the flatter parabola) is what we want.
+	if self_p0[0]==-1 and self_p0[1]==-1: return False
+	if self_p1[0]==-2 and self_p1[1]==-2: return True
+	if self_direct == 0:
+		return self_hist[0]>px
+	else:
+		if self_hist[0] == y0:
+			#print('hist',y0,self_hist)
+			cx = self_hist[1]
+		else:
+			if self_p1[1]>self_p0[1]: u,v = self_p1,self_p0
+			else: v,u = self_p1,self_p0
+			#print(u,v,y0)
+			if u[1]>y0:
+				print('Error u1>y0',u[0],u[1],v[0],v[1],px,y0)
+				raise RuntimeError('Error u1>y0')
+			if round(u[1],Voronoi_SLVround)==round(v[1],Voronoi_SLVround): cx = (u[0]+v[0])/2.
+			elif round(u[1],Voronoi_SLVround)==round(y0,Voronoi_SLVround): cx = u[0]
+			elif u[0]==v[0]==px: cx=np.inf*self_direct
+			else:
+				insqrt = (u[1]*v[1]-u[1]*y0-v[1]*y0+y0*y0)*(u[0]*u[0]-2*u[0]*v[0]+u[1]*u[1]-2*u[1]*v[1]+v[0]*v[0]+v[1]*v[1])
+				cx = (self_direct*np.sqrt(insqrt)-u[0]*v[1]+u[0]*y0+u[1]*v[0]-v[0]*y0)/(u[1]-v[1])
+				if insqrt<0: print('Error sqrt<0',insqrt,u[0],u[1],v[0],v[1],px,y0,cx)
+			if not np.isinf(cx): self_hist = [y0,cx]
+		if Voronoi_debug: print('isRightOf',self_p0,self_p1,self_direct,px,y0,cx)
+		return cx>px
 
+@jit(nopython=True,cache=True,nogil=True)
+def TheyIntersect(self_p0,self_p1,self_direct,self_base,Next_p0,Next_p1,Next_direct,Next_base,Voronoi_SLVround,Voronoi_debug=False):
+	if self_p1[0]!=Next_p0[0] or self_p1[1]!=Next_p0[1]: raise RuntimeError('ERROR: not consecutive')
+	if self_p0[0]==-1 and self_p0[1]==-1: return None
+	if Next_p1[0]==-2 and Next_p1[1]==-2: return None
+	if self_direct<=0 and Next_direct>=0: return None
+	if self_p0[0]==self_p1[0]==Next_p1[0]: return None
+	#1: a<0 b>0  2: a<0 b=0  3: a=0 b>0  4: a=0 b=0
+	ux,uy = self_p0
+	vx,vy = self_p1
+	wx,wy = Next_p1
+	if uy>wy: ux,uy,wx,wy=wx,wy,ux,uy
+	if vy>wy: vx,vy,wx,wy=wx,wy,vx,vy
+	if uy>vy: ux,uy,vx,vy=vx,vy,ux,uy
+	if Voronoi_debug: print('Intersect',(ux,uy),(vx,vy),(wx,wy))
+	if uy == vy and ux != vx and vy != wy:
+		cx = (ux + vx)/2
+		if wx==cx:
+			cy = (uy+wy)/2 - (ux-vx)**2/8./(wy-uy)
+			ytop=wy
+		else:
+			#solve[(x - u1)^2+(y - u2)^2=r2,(x-v1)^2+(y-u2)^2=r2, (x-w1)^2+(y-w2)^2=r2, x,y]
+			#cy = (-ux*wx - vx*wx + wx**2 + wy**2 + ux*vx - uy**2)/2./(wy-uy)
+			cy = (wy+uy)/2. +  (ux-wx)*(vx-wx)/2./(wy-uy)
+			r = np.sqrt(((ux-wx)**2+(uy-wy)**2)*((wx-vx)**2+(uy-wy)**2))/2./(wy-uy)
+			ytop=cy+r
+	elif wx==ux and wx!=vx:
+		cy = (wy+uy)/2
+		if vy==cy:
+			cx = (ux+vx)/2 + (uy-wy)**2/(ux-vx)/8.
+			r = ((uy-wy)**2+4*(ux-vx)**2)/8./abs(ux-vx)
+			ytop=cy+r
+		else:
+			cx = (ux+vx)/2 + (vy-wy)*(uy-vy)/(ux-vx)/2 # 2(x-(ux+vx)/2) / (vy-wy) = (uy-vy) / (ux-vx) #same angle
+			r = np.sqrt(((ux-vx)**2+(uy-vy)**2)*((wy-vy)**2+(ux-vx)**2))/2./abs(ux-vx)
+			ytop=cy+r
+	else:
+		a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
+		if a==0: return None #!!!!!!!!!!!!!!check
+		b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
+		b2 = (vx-wx)*(vx+wx)+(vy-wy)*(vy+wy)
+		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
+		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
+		r = np.sqrt((cx-ux)**2+(cy-uy)**2)
+		ytop=cy+r
+	if self_direct==1 and round(cx,Voronoi_SLVround)<round(self_base[0],Voronoi_SLVround) \
+	or Next_direct==1 and round(cx,Voronoi_SLVround)<round(Next_base[0],Voronoi_SLVround) \
+	or self_direct==-1 and round(cx,Voronoi_SLVround)>round(self_base[0],Voronoi_SLVround) \
+	or Next_direct==-1 and round(cx,Voronoi_SLVround)>round(Next_base[0],Voronoi_SLVround):
+		return None
+	if self_direct==0 and round(cy,Voronoi_SLVround)<round(self_base[1],Voronoi_SLVround) \
+	or Next_direct==0 and round(cy,Voronoi_SLVround)<round(Next_base[1],Voronoi_SLVround):
+		return None
+	return cx,ytop
 
 class HalfEdgeM(object):
 	#RightLimit=0
@@ -48,46 +138,9 @@ class HalfEdgeM(object):
 	def __str__(self):
 		return 'p0:'+str(self.p0)+' p1:'+str(self.p1)+' dir:'+str(self.direct)+' b:'+str(self.base)+' s:'+str(self.summit)+' hist:'+str(self.hist)
 
-	@staticmethod
-	@jit(nopython=True,cache=True)
-	def ItisRightOf(self_p0,self_p1,self_direct,self_hist,px,y0,Voronoi_SLVround,Voronoi_debug=False):
-		#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
-		#(px,y0) is a site event, so y0 is the current position of sweep line
-		#Each position of the sweep line defines a circle crossing two neighboring sites (self_p0 and self_p1) and touching the sweep line at the top. As y0 grows, the center of the circle (cx,y0-r) traces the edge.
-		#(the method from the paper doesn't work, so I use mine)
-		#Input the following expression in http://www.wolframalpha.com/
-		#solve[(x-u0)^2+(y-u1)^2=r^2,(x-v0)^2+(y-v1)^2=r^2,y0-y=r,x,y,r]
-		#to get cx as a function of self_p0, self_p1, y0
-		#There are two solutions, indicating the two crossing points of two nerghboring parabolas
-		#The first crossing point (the one nearer to the flatter parabola) is what we want.
-		if self_p0[0]==-1 and self_p0[1]==-1: return False
-		if self_p1[0]==-2 and self_p1[1]==-2: return True
-		if self_direct == 0:
-			return self_hist[0]>px
-		else:
-			if self_hist[0] == y0:
-				#print('hist',y0,self_hist)
-				cx = self_hist[1]
-			else:
-				if self_p1[1]>self_p0[1]: u,v = self_p1,self_p0
-				else: v,u = self_p1,self_p0
-				#print(u,v,y0)
-				if u[1]>y0:
-					print('Error u1>y0',u[0],u[1],v[0],v[1],px,y0)
-					raise RuntimeError('Error u1>y0')
-				if round(u[1],Voronoi_SLVround)==round(v[1],Voronoi_SLVround): cx = (u[0]+v[0])/2.
-				elif round(u[1],Voronoi_SLVround)==round(y0,Voronoi_SLVround): cx = u[0]
-				elif u[0]==v[0]==px: cx=np.inf*self_direct
-				else:
-					insqrt = (u[1]*v[1]-u[1]*y0-v[1]*y0+y0*y0)*(u[0]*u[0]-2*u[0]*v[0]+u[1]*u[1]-2*u[1]*v[1]+v[0]*v[0]+v[1]*v[1])
-					cx = (self_direct*np.sqrt(insqrt)-u[0]*v[1]+u[0]*y0+u[1]*v[0]-v[0]*y0)/(u[1]-v[1])
-					if insqrt<0: print('Error sqrt<0',insqrt,u[0],u[1],v[0],v[1],px,y0,cx)
-				if not np.isinf(cx): self_hist = [y0,cx]
-			if Voronoi_debug: print('isRightOf',self_p0,self_p1,self_direct,px,y0,cx)
-			return cx>px
 	def isRightOf(self,px,y0):
 		#print(self.p0,self.p1,self.direct,type(self.hist[0]),type(px),type(y0))
-		return self.ItisRightOf(self.p0,self.p1,self.direct,self.hist,px,y0,Voronoi.SLVround,Voronoi.debug)
+		return ItisRightOf(self.p0,self.p1,self.direct,self.hist,px,y0,Voronoi.SLVround,Voronoi.debug)
 
 	def oldisRightOf(self,px,y0):
 		#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
@@ -121,63 +174,8 @@ class HalfEdgeM(object):
 				if not np.isinf(cx): self.hist = [y0,cx]
 			if Voronoi.debug: print('isRightOf',self.p0,self.p1,self.direct,px,y0,cx)
 			return cx>px
-	@staticmethod
-	@jit(nopython=True,cache=True)
-	def TheyIntersect(self_p0,self_p1,self_direct,self_base,Next_p0,Next_p1,Next_direct,Next_base,Voronoi_SLVround,Voronoi_debug=False):
-		if self_p1[0]!=Next_p0[0] or self_p1[1]!=Next_p0[1]: raise RuntimeError('ERROR: not consecutive')
-		if self_p0[0]==-1 and self_p0[1]==-1: return None
-		if Next_p1[0]==-2 and Next_p1[1]==-2: return None
-		if self_direct<=0 and Next_direct>=0: return None
-		if self_p0[0]==self_p1[0]==Next_p1[0]: return None
-		#1: a<0 b>0  2: a<0 b=0  3: a=0 b>0  4: a=0 b=0
-		ux,uy = self_p0
-		vx,vy = self_p1
-		wx,wy = Next_p1
-		if uy>wy: ux,uy,wx,wy=wx,wy,ux,uy
-		if vy>wy: vx,vy,wx,wy=wx,wy,vx,vy
-		if uy>vy: ux,uy,vx,vy=vx,vy,ux,uy
-		if Voronoi_debug: print('Intersect',(ux,uy),(vx,vy),(wx,wy))
-		if uy == vy and ux != vx and vy != wy:
-			cx = (ux + vx)/2
-			if wx==cx:
-				cy = (uy+wy)/2 - (ux-vx)**2/8./(wy-uy)
-				ytop=wy
-			else:
-				#solve[(x - u1)^2+(y - u2)^2=r2,(x-v1)^2+(y-u2)^2=r2, (x-w1)^2+(y-w2)^2=r2, x,y]
-				#cy = (-ux*wx - vx*wx + wx**2 + wy**2 + ux*vx - uy**2)/2./(wy-uy)
-				cy = (wy+uy)/2. +  (ux-wx)*(vx-wx)/2./(wy-uy)
-				r = np.sqrt(((ux-wx)**2+(uy-wy)**2)*((wx-vx)**2+(uy-wy)**2))/2./(wy-uy)
-				ytop=cy+r
-		elif wx==ux and wx!=vx:
-			cy = (wy+uy)/2
-			if vy==cy:
-				cx = (ux+vx)/2 + (uy-wy)**2/(ux-vx)/8.
-				r = ((uy-wy)**2+4*(ux-vx)**2)/8./abs(ux-vx)
-				ytop=cy+r
-			else:
-				cx = (ux+vx)/2 + (vy-wy)*(uy-vy)/(ux-vx)/2 # 2(x-(ux+vx)/2) / (vy-wy) = (uy-vy) / (ux-vx) #same angle
-				r = np.sqrt(((ux-vx)**2+(uy-vy)**2)*((wy-vy)**2+(ux-vx)**2))/2./abs(ux-vx)
-				ytop=cy+r
-		else:
-			a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
-			if a==0: return None #!!!!!!!!!!!!!!check
-			b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
-			b2 = (vx-wx)*(vx+wx)+(vy-wy)*(vy+wy)
-			cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
-			cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
-			r = np.sqrt((cx-ux)**2+(cy-uy)**2)
-			ytop=cy+r
-		if self_direct==1 and round(cx,Voronoi_SLVround)<round(self_base[0],Voronoi_SLVround) \
-		or Next_direct==1 and round(cx,Voronoi_SLVround)<round(Next_base[0],Voronoi_SLVround) \
-		or self_direct==-1 and round(cx,Voronoi_SLVround)>round(self_base[0],Voronoi_SLVround) \
-		or Next_direct==-1 and round(cx,Voronoi_SLVround)>round(Next_base[0],Voronoi_SLVround):
-			return None
-		if self_direct==0 and round(cy,Voronoi_SLVround)<round(self_base[1],Voronoi_SLVround) \
-		or Next_direct==0 and round(cy,Voronoi_SLVround)<round(Next_base[1],Voronoi_SLVround):
-			return None
-		return cx,ytop
 	def Intersect(self,Next):
-		return self.TheyIntersect(self.p0,self.p1,self.direct,self.base,Next.p0,Next.p1,Next.direct,Next.base,Voronoi.SLVround,Voronoi.debug)
+		return TheyIntersect(self.p0,self.p1,self.direct,self.base,Next.p0,Next.p1,Next.direct,Next.base,Voronoi.SLVround,Voronoi.debug)
 	def oldIntersect(self,Next):
 		if self.p1!=Next.p0: sys.exit('ERROR: not consecutive')
 		if self.p0==(-1,-1): return None
