@@ -24,7 +24,7 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #vertical,upward: y++
 #horizontal,right: x++
 
-if 0:
+if 1:
 	from CweeplineVT import CalCxRightOf,CalIntersect
 else:
 	@jit(float64(float64,float64,float64,float64,int32,float64,float64,float64),nopython=True,cache=True,nogil=True,fastmath=False)
@@ -454,10 +454,11 @@ class EventQueue(object):
 			self.NumEvt-=1
 			if self.NumEvt>0 and e[0]-self.Voronoi_atol>=self.VerEvt[0][0]: warnings.warn(f'WARNING: next step is very near {e} {self.VerEvt[0]}')
 			#self.pop(n) #!!! seems useless
-			if len(e)==5:
+			ne=len(e)
+			if ne==5:
 				y,x,count,n,nr=e
 				return [x,y,n,nr]	#Vertex event
-			elif len(e)==6: #turns out to be useless
+			elif ne==6: #turns out to be useless
 				y,x,count,n,nr,nl=e
 				return [x,y,n,nr,nl]
 			else: sys.exit('ERR')
@@ -795,7 +796,11 @@ class Voronoi(object):
 		#END_OF_while p is not None:
 		T.pop(-1)
 		T.pop(-2)
+		self.finish(T)
+		self.clean()
+	#END_OF_Construct()
 
+	def finish(self,T):
 		#???
 		Voronoi_atol=10**-Voronoi.SLVround
 		#for e in self.Edges.values(): #Useless? It's done again later. Try remove it.
@@ -832,6 +837,7 @@ class Voronoi(object):
 						e.base = e2.summit
 						e2.summit = None
 						assert e.p0==e2.p1 and e.p1==e2.p0
+	def clean(self):
 		#Delete nouse edges
 		for k in list(self.Edges.keys()):
 			if self.Edges[k].summit is None: self.Edges.pop(k)
@@ -842,7 +848,6 @@ class Voronoi(object):
 			or (self.Edges[k].base[1],self.Edges[k].summit[1]) in ((-0.5,self.TopLimit),(self.TopLimit,-0.5)):
 				print('NOTE',self.Edges[k].p0,self.Edges[k].p1,self.Edges[k].base,self.Edges[k].summit)
 		if Voronoi.debug: print('time:',time.time()-StartTime)
-	#END_OF_Construct()
 
 	def RenewRightBoundary(self,T):
 		if Voronoi.debug: print(color('EdgeR:',31,1),T[-2],T[T.KL[-2]])
