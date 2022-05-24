@@ -25,6 +25,8 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #horizontal,right: x++
 
 if 1:
+	from SweeplineVT import CalCxRightOf,CalIntersect
+else:
 	@jit(float64(float64,float64,float64,float64,int32,float64,float64,float64),nopython=True,cache=True,nogil=True,fastmath=False)
 	def CalCxRightOf(u0,u1,v0,v1,self_direct,px,y0,Voronoi_atol):
 		if abs(u1-v1)<Voronoi_atol: cx = (u0+v0)/2.  #np.isclose is very slow
@@ -37,40 +39,40 @@ if 1:
 		return cx #has to be sent back to the Python object to set the hist=(y0,cx)
 	#END_OF_def CalCxRightOf
 
-@jit(float64[:](float64,float64,float64,float64,float64,float64),nopython=True,cache=True,nogil=True,fastmath=False)
-def CalIntersect(ux,uy,vx,vy,wx,wy):
-	if uy == vy and ux != vx and vy != wy:
-		cx = (ux + vx)/2
-		if wx==cx:
-			cy = (uy+wy)/2 - (ux-vx)**2/8./(wy-uy)
-			ytop=wy
+	@jit(float64[:](float64,float64,float64,float64,float64,float64),nopython=True,cache=True,nogil=True,fastmath=False)
+	def CalIntersect(ux,uy,vx,vy,wx,wy):
+		if uy == vy and ux != vx and vy != wy:
+			cx = (ux + vx)/2
+			if wx==cx:
+				cy = (uy+wy)/2 - (ux-vx)**2/8./(wy-uy)
+				ytop=wy
+			else:
+				#solve[(x - u1)^2+(y - u2)^2=r2,(x-v1)^2+(y-u2)^2=r2, (x-w1)^2+(y-w2)^2=r2, x,y]
+				#cy = (-ux*wx - vx*wx + wx**2 + wy**2 + ux*vx - uy**2)/2./(wy-uy)
+				cy = (wy+uy)/2. +  (ux-wx)*(vx-wx)/2./(wy-uy)
+				r = np.sqrt(((ux-wx)**2+(uy-wy)**2)*((wx-vx)**2+(uy-wy)**2))/2./(wy-uy)
+				ytop=cy+r
+		elif wx==ux and wx!=vx:
+			cy = (wy+uy)/2
+			if vy==cy:
+				cx = (ux+vx)/2 + (uy-wy)**2/(ux-vx)/8.
+				r = ((uy-wy)**2+4*(ux-vx)**2)/8./abs(ux-vx)
+				ytop=cy+r
+			else:
+				cx = (ux+vx)/2 + (vy-wy)*(uy-vy)/(ux-vx)/2 # 2(x-(ux+vx)/2) / (vy-wy) = (uy-vy) / (ux-vx) #same angle
+				r = np.sqrt(((ux-vx)**2+(uy-vy)**2)*((wy-vy)**2+(ux-vx)**2))/2./abs(ux-vx)
+				ytop=cy+r
 		else:
-			#solve[(x - u1)^2+(y - u2)^2=r2,(x-v1)^2+(y-u2)^2=r2, (x-w1)^2+(y-w2)^2=r2, x,y]
-			#cy = (-ux*wx - vx*wx + wx**2 + wy**2 + ux*vx - uy**2)/2./(wy-uy)
-			cy = (wy+uy)/2. +  (ux-wx)*(vx-wx)/2./(wy-uy)
-			r = np.sqrt(((ux-wx)**2+(uy-wy)**2)*((wx-vx)**2+(uy-wy)**2))/2./(wy-uy)
+			a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
+			if a==0: return np.float64([-np.inf,np.inf,np.inf]) #take it as None !!!!!!!!!!!!!!check
+			b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
+			b2 = (vx-wx)*(vx+wx)+(vy-wy)*(vy+wy)
+			cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
+			cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
+			r = np.sqrt((cx-ux)**2+(cy-uy)**2)
 			ytop=cy+r
-	elif wx==ux and wx!=vx:
-		cy = (wy+uy)/2
-		if vy==cy:
-			cx = (ux+vx)/2 + (uy-wy)**2/(ux-vx)/8.
-			r = ((uy-wy)**2+4*(ux-vx)**2)/8./abs(ux-vx)
-			ytop=cy+r
-		else:
-			cx = (ux+vx)/2 + (vy-wy)*(uy-vy)/(ux-vx)/2 # 2(x-(ux+vx)/2) / (vy-wy) = (uy-vy) / (ux-vx) #same angle
-			r = np.sqrt(((ux-vx)**2+(uy-vy)**2)*((wy-vy)**2+(ux-vx)**2))/2./abs(ux-vx)
-			ytop=cy+r
-	else:
-		a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
-		if a==0: return np.float64([-np.inf,np.inf,np.inf]) #take it as None !!!!!!!!!!!!!!check
-		b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
-		b2 = (vx-wx)*(vx+wx)+(vy-wy)*(vy+wy)
-		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
-		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
-		r = np.sqrt((cx-ux)**2+(cy-uy)**2)
-		ytop=cy+r
-	return np.float64([cx,ytop,cy])
-#END_OF_def CalIntersect
+		return np.float64([cx,ytop,cy])
+	#END_OF_def CalIntersect
 
 class HalfEdgeM(object):
 	#RightLimit=0
