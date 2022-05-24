@@ -1,11 +1,12 @@
 import setuptools
+from build import cc
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="SweeplineVT",
-    version="0.0.8",
+    version="1.0.0",
     author="Teng Liu",
     author_email="lewtonstein@gmail.com",
     description="Voronoi Tessellation using Sweep-line algorithm",
@@ -19,9 +20,7 @@ setuptools.setup(
 		"License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],
-	install_requires=[
-		"numpy",
-		"astropy",
-		"matplotlib"],
+	install_requires=["numpy", "astropy", "matplotlib", "numba"],
     python_requires='>=3.6',
+	ext_modules=[cc.distutils_extension()]
 )

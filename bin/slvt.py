@@ -63,7 +63,7 @@ NOTE
 		exit()
 	Options={}
 	S_opt='dDAPTSMhs'
-	L_opt=['calpvd','calArea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','CleanFilledBorder','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale']
+	L_opt=['calpvd','calArea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','CleanFilledBorder','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale','SmoFactor=']
 	opts,args=getopt.getopt(sys.argv[1:],S_opt,L_opt)
 	if len(args)>0:
 		for arg in args:
@@ -127,6 +127,15 @@ NOTE
 			else:
 				if n>=Voronoi.SLVround: raise RuntimeError('--resolution Do you really want such a high resolution?')
 				Options['Resolution'] = n
+		elif opt == '--SmoFactor':
+			try:
+				SmoFactor=float(arg)
+				assert 0<SmoFactor<1
+			except:
+				sys.exit("ERROR: --SmoFactor "+arg)
+			else:
+				Options['calSmoothMap'] = True
+				Options['SmoFactor'] = SmoFactor
 		elif opt == '--accuracy':
 			try:
 				n = int(arg)
@@ -190,5 +199,5 @@ NOTE
 
 import profile
 if __name__ == '__main__':
-	profile.run('main()')
-	#main()
+	#profile.run('main()')
+	main()

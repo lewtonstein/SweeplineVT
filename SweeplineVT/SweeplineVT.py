@@ -511,6 +511,7 @@ class Voronoi(object):
 		self.ToCalSmap= kwargs.get('calSmoothMap',False)
 		self.ToCum2D = kwargs.get('cum2d',False)
 		self.ToCalDel = kwargs.pop('Delaunay',False)
+		self.KernelPixelFrac = kwargs.get('KernelPixelFrac',0.5)
 		self.Hdr = kwargs.get('Hdr',None)
 		self.OffSetX=0
 		self.OffSetY=0
@@ -690,6 +691,15 @@ class Voronoi(object):
 			else:
 				print('>> '+self.FileName+'_area.fits')
 				fits.writeto(self.FileName+'_area.fits',self.Amap,self.Hdr,overwrite=True)
+		if self.ToCalSmap:
+			if type(self.Smap) is dict:
+				with open(self.FileName+'_SmoFactor.dat','w') as fout:
+					for (x,y) in self.Smap:
+						print(f'{self.pind[x,y][0]:d}	{(x-self.OffSetX)/self.scale:.9g} {(y-self.OffSetY)/self.scale:.9g} {self.Smap[x,y]:.9g} {self.pind[x,y][1]:d}',file=fout)
+					print('>>',fout.name)
+			else:
+				print('>> '+self.FileName+'_SmoFactor.fits')
+				fits.writeto(self.FileName+'_SmoFactor.fits',self.Smap,self.Hdr,overwrite=True)
 		if self.ToCalCtd:
 			if type(self.Amap) is dict:
 				with open(self.FileName+'_ctd.dat','w') as fout:
@@ -1449,14 +1459,30 @@ class Voronoi(object):
 				print('>> '+self.FileName+'_Triangles.dat')
 
 		########################################################################
-		'''
 		if self.ToCalSmap:
-			self.Smap=
+			self.KernelPixelFrac=0.5
+			if type(self.pmap) is dict:
+				self.Smap={k:self.KernelPixelFrac/self.Amap[k] for k in self.Amap.keys()}
+				Nmap={k:0 for k in self.Amap.keys()}
+			else:
+				self.Smap=np.zeros_like(self.Amap)
+				haveP=self.Amap>0
+				self.Smap[haveP]=self.KernelPixelFrac/self.Amap[haveP]
+				Nmap=np.zeros(self.Amap.shape,dtype=np.int16)
 			for n in np.arange(P0.shape[0]):
-				#self.Edges[KE[n]].length = length[n]
-				#self.Edges[KE[n]].PPdist = self.PPdis[n]
-				self.Smap[tuple(P0[n])] += Earea[n]
-		'''
+				Nmap[tuple(P0[n])]+=1
+				Nmap[tuple(P1[n])]+=1
+			if type(self.pmap) is dict:
+				fmap={k:(1-self.KernelPixelFrac)/Nmap[k]/self.Amap[k] for k in self.Amap.keys()}
+			else:
+				fmap=np.zeros_like(self.Amap)
+				fmap[haveP]=(1-self.KernelPixelFrac)/Nmap[haveP]/self.Amap[haveP]
+			for n in np.arange(P0.shape[0]):
+				self.Smap[tuple(P0[n])] += fmap[tuple(P1[n])]
+				self.Smap[tuple(P1[n])] += fmap[tuple(P0[n])]
+			if type(self.pmap) is dict:
+				assert np.isclose(np.sum(1./np.array(list(self.Amap.values()))),np.sum(list(self.Smap.values())))
+			else: assert np.isclose(np.sum(1./self.Amap[haveP]),np.sum(self.Smap))
 		########################################################################
 		if RemoveEdgePoint:
 			for N in self.EdgePoint:
