@@ -11,7 +11,7 @@ import itertools
 from copy import copy
 import time,sys,warnings
 from tqdm import tqdm
-from numba import jit,boolean
+from numba import jit,boolean,float64,int32
 def _ltshowwarning(message, category, filename, lineno, file=None, line=None):
 	if category==UserWarning: print('\033[33mWARNING\033[0m:',message)
 	else:
@@ -24,59 +24,21 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #vertical,upward: y++
 #horizontal,right: x++
 
-@jit(nopython=True,cache=True,nogil=True)
-def ItisRightOf(self_p0,self_p1,self_direct,self_hist,px,y0,Voronoi_atol,Voronoi_debug=False):
-	#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
-	#(px,y0) is a site event, so y0 is the current position of sweep line
-	#Each position of the sweep line defines a circle crossing two neighboring sites (self_p0 and self_p1) and touching the sweep line at the top. As y0 grows, the center of the circle (cx,y0-r) traces the edge.
-	#(the method from the paper doesn't work, so I use mine)
-	#Input the following expression in http://www.wolframalpha.com/
-	#solve[(x-u0)^2+(y-u1)^2=r^2,(x-v0)^2+(y-v1)^2=r^2,y0-y=r,x,y,r]
-	#to get cx as a function of self_p0, self_p1, y0
-	#There are two solutions, indicating the two crossing points of two nerghboring parabolas
-	#The first crossing point (the one nearer to the flatter parabola) is what we want.
-	if self_p0[0]==-1 and self_p0[1]==-1: return False
-	if self_p1[0]==-2 and self_p1[1]==-2: return True
-	if self_direct == 0:
-		return self_hist[0]>px
-	else:
-		if self_hist[0] == y0:
-			#print('hist',y0,self_hist)
-			cx = self_hist[1]
+if 1:
+	@jit(float64(float64,float64,float64,float64,int32,float64,float64,float64),nopython=True,cache=True,nogil=True,fastmath=False)
+	def CalCxRightOf(u0,u1,v0,v1,self_direct,px,y0,Voronoi_atol):
+		if abs(u1-v1)<Voronoi_atol: cx = (u0+v0)/2.  #np.isclose is very slow
+		elif abs(u1-y0)<Voronoi_atol: cx = u0
+		elif u0==v0==px: cx=np.float64(np.inf)*self_direct #fastmath=True doesn't work with inf
 		else:
-			if self_p1[1]>self_p0[1]: u,v = self_p1,self_p0
-			else: v,u = self_p1,self_p0
-			#print(u,v,y0)
-			if u[1]>y0:
-				print('Error u1>y0',u[0],u[1],v[0],v[1],px,y0)
-				raise RuntimeError('Error u1>y0')
-			#np.isclose is very slow
-			if abs(u[1]-v[1])<Voronoi_atol: cx = (u[0]+v[0])/2.
-			elif abs(u[1]-y0)<Voronoi_atol: cx = u[0]
-			elif u[0]==v[0]==px: cx=np.inf*self_direct
-			else:
-				insqrt = (u[1]*v[1]-u[1]*y0-v[1]*y0+y0*y0)*(u[0]*u[0]-2*u[0]*v[0]+u[1]*u[1]-2*u[1]*v[1]+v[0]*v[0]+v[1]*v[1])
-				cx = (self_direct*np.sqrt(insqrt)-u[0]*v[1]+u[0]*y0+u[1]*v[0]-v[0]*y0)/(u[1]-v[1])
-				if insqrt<0: print('Error sqrt<0',insqrt,u[0],u[1],v[0],v[1],px,y0,cx)
-			if not np.isinf(cx): self_hist = [y0,cx]
-		if Voronoi_debug: print('isRightOf',self_p0,self_p1,self_direct,px,y0,cx)
-		return cx>px
+			insqrt = (u1*v1-u1*y0-v1*y0+y0*y0)*(u0*u0-2*u0*v0+u1*u1-2*u1*v1+v0*v0+v1*v1)
+			cx = (self_direct*np.sqrt(insqrt)-u0*v1+u0*y0+u1*v0-v0*y0)/(u1-v1)
+			if insqrt<0: print('Error sqrt<0',insqrt,u0,u1,v0,v1,px,y0,cx)
+		return cx #has to be sent back to the Python object to set the hist=(y0,cx)
+	#END_OF_def CalCxRightOf
 
-@jit(nopython=True,cache=True,nogil=True)
-def TheyIntersect(self_p0,self_p1,self_direct,self_base,Next_p0,Next_p1,Next_direct,Next_base,Voronoi_atol,Voronoi_debug=False):
-	if self_p1[0]!=Next_p0[0] or self_p1[1]!=Next_p0[1]: raise RuntimeError('ERROR: not consecutive')
-	if self_p0[0]==-1 and self_p0[1]==-1: return None
-	if Next_p1[0]==-2 and Next_p1[1]==-2: return None
-	if self_direct<=0 and Next_direct>=0: return None
-	if self_p0[0]==self_p1[0]==Next_p1[0]: return None
-	#1: a<0 b>0  2: a<0 b=0  3: a=0 b>0  4: a=0 b=0
-	ux,uy = self_p0
-	vx,vy = self_p1
-	wx,wy = Next_p1
-	if uy>wy: ux,uy,wx,wy=wx,wy,ux,uy
-	if vy>wy: vx,vy,wx,wy=wx,wy,vx,vy
-	if uy>vy: ux,uy,vx,vy=vx,vy,ux,uy
-	if Voronoi_debug: print('Intersect',(ux,uy),(vx,vy),(wx,wy))
+@jit(float64[:](float64,float64,float64,float64,float64,float64),nopython=True,cache=True,nogil=True,fastmath=False)
+def CalIntersect(ux,uy,vx,vy,wx,wy):
 	if uy == vy and ux != vx and vy != wy:
 		cx = (ux + vx)/2
 		if wx==cx:
@@ -100,22 +62,15 @@ def TheyIntersect(self_p0,self_p1,self_direct,self_base,Next_p0,Next_p1,Next_dir
 			ytop=cy+r
 	else:
 		a = (ux-vx)*(vy-wy)-(uy-vy)*(vx-wx)
-		if a==0: return None #!!!!!!!!!!!!!!check
+		if a==0: return np.float64([-np.inf,np.inf,np.inf]) #take it as None !!!!!!!!!!!!!!check
 		b1 = (ux-vx)*(ux+vx)+(uy-vy)*(uy+vy)
 		b2 = (vx-wx)*(vx+wx)+(vy-wy)*(vy+wy)
 		cx = (b1*(vy-wy)-b2*(uy-vy))/2./a
 		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
 		r = np.sqrt((cx-ux)**2+(cy-uy)**2)
 		ytop=cy+r
-	if self_direct==1  and cx+Voronoi_atol<self_base[0] \
-	or Next_direct==1  and cx+Voronoi_atol<Next_base[0] \
-	or self_direct==-1 and cx-Voronoi_atol>self_base[0] \
-	or Next_direct==-1 and cx-Voronoi_atol>Next_base[0]:
-		return None
-	if self_direct==0  and cy+Voronoi_atol<self_base[1] \
-	or Next_direct==0  and cy+Voronoi_atol<Next_base[1]:
-		return None
-	return cx,ytop
+	return np.float64([cx,ytop,cy])
+#END_OF_def CalIntersect
 
 class HalfEdgeM(object):
 	#RightLimit=0
@@ -129,7 +84,7 @@ class HalfEdgeM(object):
 		self.base = base
 		#history test, to save time
 		if self.direct == 0:
-			self.hist = ((self.p0[0]+self.p1[0])/2.,np.inf)
+			self.hist = ((self.p0[0]+self.p1[0])/2.,(self.p0[0]+self.p1[0])/2.)
 		else:
 			self.hist = (-np.inf,np.inf)
 		self.twin = twin
@@ -139,11 +94,31 @@ class HalfEdgeM(object):
 	def __str__(self):
 		return 'p0:'+str(self.p0)+' p1:'+str(self.p1)+' dir:'+str(self.direct)+' b:'+str(self.base)+' s:'+str(self.summit)+' hist:'+str(self.hist)
 
-	def isRightOf(self,px,y0):
-		#print(self.p0,self.p1,self.direct,type(self.hist[0]),type(px),type(y0))
-		return ItisRightOf(self.p0,self.p1,self.direct,self.hist,px,y0,10**-Voronoi.SLVround,Voronoi.debug)
+	def isRightOf(self,px,y0,Voronoi_atol):
+		#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
+		#(px,y0) is a site event, so y0 is the current position of sweep line
+		#Each position of the sweep line defines a circle crossing two neighboring sites (self_p0 and self_p1) and touching the sweep line at the top. As y0 grows, the center of the circle (cx,y0-r) traces the edge.
+		#(the method from the paper doesn't work, so I use mine)
+		#Input the following expression in http://www.wolframalpha.com/
+		#solve[(x-u0)^2+(y-u1)^2=r^2,(x-v0)^2+(y-v1)^2=r^2,y0-y=r,x,y,r]
+		#to get cx as a function of self_p0, self_p1, y0
+		#There are two solutions, indicating the two crossing points of two nerghboring parabolas
+		#The first crossing point (the one nearer to the flatter parabola) is what we want.
+		if self.p0 == (-1,-1) : return False
+		if self.p1 == (-2,-2): return True
+		if self.direct == 0: cx = self.hist[1]
+		else:
+			if self.hist[0] == y0: cx = self.hist[1]
+			else:
+				if self.p1[1]>self.p0[1]: u,v = self.p1,self.p0
+				else: v,u = self.p1,self.p0
+				if u[1]>y0: sys.exit('Error u1>y0   %.8f %.8f - %.8f %.8f - %.8f %.8f' % (u[0],u[1],v[0],v[1],px,y0))
+				cx=np.float64(CalCxRightOf(u[0],u[1],v[0],v[1],self.direct,px,y0,Voronoi_atol))
+				if not np.isinf(cx): self.hist=[y0,cx]
+			if Voronoi.debug: print('isRightOf',self.p0,self.p1,self.direct,px,y0,cx)
+		return cx>px
 
-	def oldisRightOf(self,px,y0):
+	def oldisRightOf(self,px,y0,Voronoi_atol=1e-8):
 		#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
 		#(px,y0) is a site event, so y0 is the current position of sweep line
 		#Each position of the sweep line defines a circle crossing two neighboring sites (self.p0 and self.p1) and touching the sweep line at the top. As y0 grows, the center of the circle (cx,y0-r) traces the edge.
@@ -175,8 +150,32 @@ class HalfEdgeM(object):
 				if not np.isinf(cx): self.hist = [y0,cx]
 			if Voronoi.debug: print('isRightOf',self.p0,self.p1,self.direct,px,y0,cx)
 			return cx>px
-	def Intersect(self,Next):
-		return TheyIntersect(self.p0,self.p1,self.direct,self.base,Next.p0,Next.p1,Next.direct,Next.base,10**-Voronoi.SLVround,Voronoi.debug)
+	def Intersect(self,Next,Voronoi_atol):
+		if self.p1!=Next.p0: sys.exit('ERROR: not consecutive')
+		if self.p0==(-1,-1): return None
+		if Next.p1==(-2,-2): return None
+		if self.direct<=0 and Next.direct>=0: return None
+		if self.p0[0]==self.p1[0]==Next.p1[0]: return None
+		#1: a<0 b>0  2: a<0 b=0  3: a=0 b>0  4: a=0 b=0
+		ux,uy = self.p0
+		vx,vy = self.p1
+		wx,wy = Next.p1
+		if uy>wy: ux,uy,wx,wy=wx,wy,ux,uy
+		if vy>wy: vx,vy,wx,wy=wx,wy,vx,vy
+		if uy>vy: ux,uy,vx,vy=vx,vy,ux,uy
+		if Voronoi.debug: print('Intersect',(ux,uy),(vx,vy),(wx,wy))
+		cx,ytop,cy=CalIntersect(ux,uy,vx,vy,wx,wy)
+		if cx==-np.inf and ytop==np.inf and cy==np.inf: return None
+		if self.direct==1  and cx+Voronoi_atol<self.base[0] \
+		or Next.direct==1  and cx+Voronoi_atol<Next.base[0] \
+		or self.direct==-1 and cx-Voronoi_atol>self.base[0] \
+		or Next.direct==-1 and cx-Voronoi_atol>Next.base[0]:
+			return None
+		if self.direct==0  and cy+Voronoi_atol<self.base[1] \
+		or Next.direct==0  and cy+Voronoi_atol<Next.base[1]:
+			return None
+		return cx,ytop
+
 	def oldIntersect(self,Next):
 		if self.p1!=Next.p0: sys.exit('ERROR: not consecutive')
 		if self.p0==(-1,-1): return None
@@ -309,9 +308,10 @@ class HalfEdgeM(object):
 
 class SweepTable(dict):
 	#a dict of half edges
-	def __init__(self,Px,Py,Right,Top):
+	def __init__(self,Px,Py,Right,Top,atol=1e-8):
 		self.KL = [] #key list
 		self.ysweep=0
+		self.Voronoi_atol=atol
 		self.p = None
 		self.RightLimit=Right
 		self.TopLimit=Top
@@ -360,7 +360,7 @@ class SweepTable(dict):
 				break
 			Nmid = (Nlow+Nhigh)//2
 			#print 'mid:',Nmid
-			if self[self.KL[Nmid]].isRightOf(p[0],p[1]):
+			if self[self.KL[Nmid]].isRightOf(p[0],p[1],self.Voronoi_atol):
 				Nhigh = Nmid
 			else:
 				Nlow = Nmid
@@ -505,6 +505,7 @@ class Voronoi(object):
 		self.ToCalDst = kwargs.get('caldst',False)
 		self.ToCalTri = kwargs.get('calTriangle',False)
 		self.ToCalCtd = kwargs.get('calCentroid',False)
+		self.ToCalSmap= kwargs.get('calSmoothMap',False)
 		self.ToCum2D = kwargs.get('cum2d',False)
 		self.ToCalDel = kwargs.pop('Delaunay',False)
 		self.Hdr = kwargs.get('Hdr',None)
@@ -624,6 +625,7 @@ class Voronoi(object):
 		self.Edges = {}
 		self.Amap = None
 		self.Wmap = None
+		self.Smap = None
 		self.ctdvector=None
 		self.PPdis = None
 		self.Adj = None
@@ -631,12 +633,8 @@ class Voronoi(object):
 		if self.ToCalDst: #image mode, not events mode
 			self.ToCalArea = True # need self.Amap
 			self.ToCalPVD = True # need PVD to fill all the cells in the image
-		if self.ToCum2D:
+		if self.ToCum2D or self.ToCalTri or self.ToCalCtd or self.ToCalSmap:
 			self.ToCalArea = True # need self.Amap
-		if self.ToCalTri:
-			self.ToCalArea = True
-		if self.ToCalCtd:
-			self.ToCalArea = True
 
 		self.Construct(**kwargs)
 		if self.ToCalArea: self.CalArea(**kwargs)
@@ -711,7 +709,7 @@ class Voronoi(object):
 
 	def Construct(self,**kwargs):
 		if Voronoi.debug: StartTime=time.time()
-		T = SweepTable(self.Px,self.Py,self.RightLimit,self.TopLimit)
+		T = SweepTable(self.Px,self.Py,self.RightLimit,self.TopLimit,atol=self.Voronoi_atol)
 		Q = T.Q
 		pbar = tqdm(total=Q.Stotal-1)
 		T.p = Q.delMin()
@@ -878,10 +876,10 @@ class Voronoi(object):
 	def afterinsertbetween(self,T,L,R,l,r=None):
 		BoundaryUpdated=False
 		if r is None: r=l
-		i1 = T[L].Intersect(T[l])
+		i1 = T[L].Intersect(T[l],self.Voronoi_atol)
 		#print(L,l,'->',i1)
 		if i1 is None or i1[0]<-0.5:
-			if T.p[1]>T.ysweep and L==T.KL[1] and not T[L].isRightOf(-0.5,T.p[1]):
+			if T.p[1]>T.ysweep and L==T.KL[1] and not T[L].isRightOf(-0.5,T.p[1],self.Voronoi_atol):
 				self.RenewLeftBoundary(T)
 				BoundaryUpdated=True
 			#else: print(L,T[L])
@@ -890,10 +888,10 @@ class Voronoi(object):
 				if i1[1]+self.Voronoi_atol<=T.p[1]: warnings.warn(f'WARNING: very small step {T.p} {i1}')
 			if Voronoi.debug: print('->V L',i1,T[L],T[l])
 			T.Q.insert(i1[0],i1[1],L,l)
-		i2 = T[r].Intersect(T[R])
+		i2 = T[r].Intersect(T[R],self.Voronoi_atol)
 		#print(r,R,'->',i2)
 		if i2 is None or i2[0]>self.RightLimit:
-			if T.p[1]>T.ysweep and R==T.KL[-2] and T[R].isRightOf(self.RightLimit,T.p[1]):
+			if T.p[1]>T.ysweep and R==T.KL[-2] and T[R].isRightOf(self.RightLimit,T.p[1],self.Voronoi_atol):
 				self.RenewRightBoundary(T)
 				BoundaryUpdated=True
 			#else: print(R,T[R])
@@ -1022,6 +1020,7 @@ class Voronoi(object):
 	def CalArea(self,**kwargs):
 		self.ToCum2D=kwargs.pop('cum2d',False)
 		self.ToCalTri=kwargs.pop('calTriangle',False)
+		self.ToCalSmap=kwargs.pop('calSmoothMap',False)
 		RemoveEdgePoint = kwargs.pop('RemoveEdgePoint',False)
 		#for e in self.Edges.values():
 		#	assert e.summit is not None
@@ -1441,6 +1440,16 @@ class Voronoi(object):
 					for n in np.arange(len(Pe)):
 						print("%f %f %f %f %f %f %f %f" % (Pe[n][0]-self.OffSetX,Pe[n][1]-self.OffSetY,E0e[n][0]-self.OffSetX,E0e[n][1]-self.OffSetY,E1e[n][0]-self.OffSetX,E1e[n][1]-self.OffSetY,Ee[n],Eweighte[n]), file=fout)
 				print('>> '+self.FileName+'_Triangles.dat')
+
+		########################################################################
+		'''
+		if self.ToCalSmap:
+			self.Smap=
+			for n in np.arange(P0.shape[0]):
+				#self.Edges[KE[n]].length = length[n]
+				#self.Edges[KE[n]].PPdist = self.PPdis[n]
+				self.Smap[tuple(P0[n])] += Earea[n]
+		'''
 		########################################################################
 		if RemoveEdgePoint:
 			for N in self.EdgePoint:
