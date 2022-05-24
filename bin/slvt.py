@@ -6,9 +6,10 @@
 ################################################################################
 import numpy as np
 from astropy.io import fits
-import json
-from SweeplineVT import Voronoi
+import json,os
 import time,sys,warnings,os,getopt
+#os.environ['NUMBA_DISABLE_JIT']='1' #disable. not sure whether works
+from SweeplineVT import Voronoi
 
 def main():
 	#	Notice the input coordinate is taken as in Python (image: 0~x-1,0~y-1; event: -0.5~x-0.5,-0.5~y-0.5)
