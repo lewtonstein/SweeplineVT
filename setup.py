@@ -1,5 +1,5 @@
 import setuptools
-from build import cc
+from lib.CweeplineVT import cc
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
