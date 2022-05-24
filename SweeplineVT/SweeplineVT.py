@@ -24,8 +24,8 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #vertical,upward: y++
 #horizontal,right: x++
 
-if 1:
-	from SweeplineVT import CalCxRightOf,CalIntersect
+if 0:
+	from CweeplineVT import CalCxRightOf,CalIntersect
 else:
 	@jit(float64(float64,float64,float64,float64,int32,float64,float64,float64),nopython=True,cache=True,nogil=True,fastmath=False)
 	def CalCxRightOf(u0,u1,v0,v1,self_direct,px,y0,Voronoi_atol):
