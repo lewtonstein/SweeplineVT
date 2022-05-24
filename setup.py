@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="SweeplineVT",
+    name="SweeplineVTtest-lewton",
     version="1.0.0",
     author="Teng Liu",
     author_email="lewtonstein@gmail.com",
@@ -20,7 +20,9 @@ setuptools.setup(
 		"License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],
-	install_requires=["numpy", "astropy", "matplotlib", "numba"],
+	install_requires=["numpy", "astropy", "matplotlib", "numba","tqdm"],
     python_requires='>=3.6',
 	ext_modules=[cc.distutils_extension()]
 )
+	#package_dir={"": "SweeplineVT"},
+    #packages=setuptools.find_packages(where="SweeplineVT"),
