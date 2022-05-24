@@ -25,7 +25,7 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #horizontal,right: x++
 
 @jit(nopython=True,cache=True,nogil=True)
-def ItisRightOf(self_p0,self_p1,self_direct,self_hist,px,y0,Voronoi_SLVround,Voronoi_debug=False):
+def ItisRightOf(self_p0,self_p1,self_direct,self_hist,px,y0,Voronoi_atol,Voronoi_debug=False):
 	#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
 	#(px,y0) is a site event, so y0 is the current position of sweep line
 	#Each position of the sweep line defines a circle crossing two neighboring sites (self_p0 and self_p1) and touching the sweep line at the top. As y0 grows, the center of the circle (cx,y0-r) traces the edge.
@@ -50,8 +50,9 @@ def ItisRightOf(self_p0,self_p1,self_direct,self_hist,px,y0,Voronoi_SLVround,Vor
 			if u[1]>y0:
 				print('Error u1>y0',u[0],u[1],v[0],v[1],px,y0)
 				raise RuntimeError('Error u1>y0')
-			if round(u[1],Voronoi_SLVround)==round(v[1],Voronoi_SLVround): cx = (u[0]+v[0])/2.
-			elif round(u[1],Voronoi_SLVround)==round(y0,Voronoi_SLVround): cx = u[0]
+			#np.isclose is very slow
+			if abs(u[1]-v[1])<Voronoi_atol: cx = (u[0]+v[0])/2.
+			elif abs(u[1]-y0)<Voronoi_atol: cx = u[0]
 			elif u[0]==v[0]==px: cx=np.inf*self_direct
 			else:
 				insqrt = (u[1]*v[1]-u[1]*y0-v[1]*y0+y0*y0)*(u[0]*u[0]-2*u[0]*v[0]+u[1]*u[1]-2*u[1]*v[1]+v[0]*v[0]+v[1]*v[1])
@@ -62,7 +63,7 @@ def ItisRightOf(self_p0,self_p1,self_direct,self_hist,px,y0,Voronoi_SLVround,Vor
 		return cx>px
 
 @jit(nopython=True,cache=True,nogil=True)
-def TheyIntersect(self_p0,self_p1,self_direct,self_base,Next_p0,Next_p1,Next_direct,Next_base,Voronoi_SLVround,Voronoi_debug=False):
+def TheyIntersect(self_p0,self_p1,self_direct,self_base,Next_p0,Next_p1,Next_direct,Next_base,Voronoi_atol,Voronoi_debug=False):
 	if self_p1[0]!=Next_p0[0] or self_p1[1]!=Next_p0[1]: raise RuntimeError('ERROR: not consecutive')
 	if self_p0[0]==-1 and self_p0[1]==-1: return None
 	if Next_p1[0]==-2 and Next_p1[1]==-2: return None
@@ -106,13 +107,13 @@ def TheyIntersect(self_p0,self_p1,self_direct,self_base,Next_p0,Next_p1,Next_dir
 		cy = (b2*(ux-vx)-b1*(vx-wx))/2./a
 		r = np.sqrt((cx-ux)**2+(cy-uy)**2)
 		ytop=cy+r
-	if self_direct==1 and round(cx,Voronoi_SLVround)<round(self_base[0],Voronoi_SLVround) \
-	or Next_direct==1 and round(cx,Voronoi_SLVround)<round(Next_base[0],Voronoi_SLVround) \
-	or self_direct==-1 and round(cx,Voronoi_SLVround)>round(self_base[0],Voronoi_SLVround) \
-	or Next_direct==-1 and round(cx,Voronoi_SLVround)>round(Next_base[0],Voronoi_SLVround):
+	if self_direct==1  and cx+Voronoi_atol<self_base[0] \
+	or Next_direct==1  and cx+Voronoi_atol<Next_base[0] \
+	or self_direct==-1 and cx-Voronoi_atol>self_base[0] \
+	or Next_direct==-1 and cx-Voronoi_atol>Next_base[0]:
 		return None
-	if self_direct==0 and round(cy,Voronoi_SLVround)<round(self_base[1],Voronoi_SLVround) \
-	or Next_direct==0 and round(cy,Voronoi_SLVround)<round(Next_base[1],Voronoi_SLVround):
+	if self_direct==0  and cy+Voronoi_atol<self_base[1] \
+	or Next_direct==0  and cy+Voronoi_atol<Next_base[1]:
 		return None
 	return cx,ytop
 
@@ -140,7 +141,7 @@ class HalfEdgeM(object):
 
 	def isRightOf(self,px,y0):
 		#print(self.p0,self.p1,self.direct,type(self.hist[0]),type(px),type(y0))
-		return ItisRightOf(self.p0,self.p1,self.direct,self.hist,px,y0,Voronoi.SLVround,Voronoi.debug)
+		return ItisRightOf(self.p0,self.p1,self.direct,self.hist,px,y0,10**-Voronoi.SLVround,Voronoi.debug)
 
 	def oldisRightOf(self,px,y0):
 		#check whether this edge is to the right of the site px,y0 (the intersection x-position cx > px)
@@ -175,7 +176,7 @@ class HalfEdgeM(object):
 			if Voronoi.debug: print('isRightOf',self.p0,self.p1,self.direct,px,y0,cx)
 			return cx>px
 	def Intersect(self,Next):
-		return TheyIntersect(self.p0,self.p1,self.direct,self.base,Next.p0,Next.p1,Next.direct,Next.base,Voronoi.SLVround,Voronoi.debug)
+		return TheyIntersect(self.p0,self.p1,self.direct,self.base,Next.p0,Next.p1,Next.direct,Next.base,10**-Voronoi.SLVround,Voronoi.debug)
 	def oldIntersect(self,Next):
 		if self.p1!=Next.p0: sys.exit('ERROR: not consecutive')
 		if self.p0==(-1,-1): return None
@@ -245,6 +246,7 @@ class HalfEdgeM(object):
 			#print(color('Nothing22',31,1),cx,cy,self.base,Next.base)
 			return None
 		return cx,ytop
+	#END_OF_def oldIntersect(self,Next)
 	def complete(self,xs,ys,echo=False):
 		#fill self.summit
 		xb,yb = self.base
@@ -316,7 +318,7 @@ class SweepTable(dict):
 		self.HalfEdge=type('HalfEdge',(HalfEdgeM,),dict(RightLimit=self.RightLimit,TopLimit=self.TopLimit))
 
 		ymin = Py>Py.min()
-		self.Q = EventQueue(Px[ymin],Py[ymin])
+		self.Q = EventQueue(Px[ymin],Py[ymin],10**-Voronoi.SLVround)
 
 		#initialize self dict
 		ymin = list(np.where(Py==Py.min())[0])
@@ -421,7 +423,7 @@ class SweepTable(dict):
 	#def RenewLeftBoundary(self): y = self.p[1] #print(color('lt',31,1),self[self.KL[-2]],self.RightLimit,y,self.ysweep) #todo = [] #if y <= self.ysweep or len(self)<=2: return todo #if not self[self.KL[1]].isRightOf(-0.5,y): if 1: if Voronoi.debug: print(color('EdgeL:',31,1),self[-1],self[self.KL[1]],-0.5,y) assert self[-1].p1==self[self.KL[1]].p0 u0,u1 = self[self.KL[1]].p0 v0,v1 = self[self.KL[1]].p1 assert u1!=v1 yb = (u0**2-2*u0*(-0.5)+u1**2-v0**2+2*v0*(-0.5)-v1**2)/2./(u1-v1) self[self.KL[1]].complete(-0.5,yb) todo=[self.KL[1],self[self.KL[1]].copy()] #if self.p is not None and len(self.p)==4 and self.KL[1]==self.p[2]: self.p = None print('WARNING no',self.p) #else: self.Q.deleteifhas(self.KL[1]) self[-1] = self.pop(self.KL[1]) self.KL.pop(1) self[-1].p0 = (-1,-1) self[-1].direct = -1 #if Voronoi.debug: print('-->:',self[-1]) return todo #END_OF_def RenewLeftBoundary(self):
 
 class EventQueue(object):
-	def __init__(self,Px,Py):
+	def __init__(self,Px,Py,Voronoi_atol=1e-8):
 		if Px.shape==Py.shape==(Px.size,):
 			self.S = np.zeros((Px.size,2))
 			self.Stotal = Px.size
@@ -429,21 +431,26 @@ class EventQueue(object):
 			self.S[:,1] = Px
 			self.SMin = 0
 			self.counter = itertools.count(1)
+			self.NumEvt = 0 #?useful?
 			self.VerEvt = []
+			self.Voronoi_atol=Voronoi_atol
 		else:
 			sys.exit('ERROR: shape error')
 	def __str__(self):
 		return str(self.VerEvt)
 		#return self.__repr__()+'\n'+str(self.VerEvt)
 	def delMin(self):
-		while len(self.VerEvt)>0 and self.VerEvt[0][2] == 0: heapq.heappop(self.VerEvt)
+		while self.NumEvt>0 and self.VerEvt[0][2] == 0:
+			heapq.heappop(self.VerEvt)
+			self.NumEvt-=1
 		#The interesting property of a heap is that its smallest element is always the root, heap[0].
-		if self.SMin<self.S.shape[0] and (len(self.VerEvt)==0 or self.S[self.SMin].tolist() <= self.VerEvt[0][:2]):
+		if self.SMin<self.S.shape[0] and (self.NumEvt==0 or self.S[self.SMin].tolist() <= self.VerEvt[0][:2]):
 			self.SMin += 1
 			return self.S[self.SMin-1][[1,0]]	#Site event
-		elif len(self.VerEvt)>0 and (self.SMin>=self.S.shape[0] or self.S[self.SMin].tolist() > self.VerEvt[0][:2]):
+		elif self.NumEvt>0 and (self.SMin>=self.S.shape[0] or self.S[self.SMin].tolist() > self.VerEvt[0][:2]):
 			e = heapq.heappop(self.VerEvt)
-			if len(self.VerEvt)>0 and round(e[0],Voronoi.SLVround)>=round(self.VerEvt[0][0],Voronoi.SLVround): warnings.warn(f'WARNING: next step is very near {e} {self.VerEvt[0]}')
+			self.NumEvt-=1
+			if self.NumEvt>0 and e[0]-self.Voronoi_atol>=self.VerEvt[0][0]: warnings.warn(f'WARNING: next step is very near {e} {self.VerEvt[0]}')
 			#self.pop(n) #!!! seems useless
 			if len(e)==5:
 				y,x,count,n,nr=e
@@ -458,6 +465,7 @@ class EventQueue(object):
 	def insert(self,x,y,n,nr): #simplified again
 		count=next(self.counter)
 		heapq.heappush(self.VerEvt,[y,x,-count,n,nr]) #???-count
+		self.NumEvt+=1
 	#def insert(self,x,y,n,nr,nl=None): #four or five elements #turns out this is useless
 	#	count=next(self.counter)
 	#	if nl is None: heapq.heappush(self.VerEvt,[y,x,count,n,nr])
@@ -503,6 +511,7 @@ class Voronoi(object):
 		self.OffSetX=0
 		self.OffSetY=0
 		self.scale=1
+		self.Voronoi_atol=10**-Voronoi.SLVround
 		if image is not None: #integer position
 			self.Mode='image'
 			assert events is None
@@ -706,6 +715,7 @@ class Voronoi(object):
 		Q = T.Q
 		pbar = tqdm(total=Q.Stotal-1)
 		T.p = Q.delMin()
+		#assert len(T.Q.VerEvt)==T.Q.NumEvt #remove to speed up
 		ndone=1
 		while T.p is not None:
 			#for k,e in T.RenewSideBoundary(): #???????
@@ -776,6 +786,7 @@ class Voronoi(object):
 			#if Voronoi.debug: print('T',T)
 			#if Voronoi.debug: print(color('Q',31,1),Q)
 			T.p = Q.delMin()
+			#assert len(T.Q.VerEvt)==T.Q.NumEvt #remove to speed up
 			if Q.SMin>ndone:
 				if (Q.SMin-pbar.n-1)*100>Q.Stotal: pbar.update(Q.SMin-ndone)
 				ndone=Q.SMin
@@ -786,11 +797,9 @@ class Voronoi(object):
 		T.pop(-2)
 
 		#???
-		for e in self.Edges.values():
-			if e.summit is not None:
-				if round(e.base[0],Voronoi.SLVround)==round(e.summit[0],Voronoi.SLVround) and round(e.base[1],Voronoi.SLVround)==round(e.summit[1],Voronoi.SLVround):
-					e.summit = None
-					continue
+		Voronoi_atol=10**-Voronoi.SLVround
+		#for e in self.Edges.values(): #Useless? It's done again later. Try remove it.
+		#	if e.summit is not None and abs(e.summit[0]-e.base[0])<Voronoi_atol and abs(e.summit[1]-e.base[1])<Voronoi_atol: e.summit = None
 		for k in self.Edges.keys():
 			if self.Edges[k].summit is not None and (self.Edges[k].base[0]<-0.5 or self.Edges[k].base[0]>self.ImgSizeX-0.5 or self.Edges[k].base[1]<-0.5 or self.Edges[k].base[1]>self.ImgSizeY-0.5 or self.Edges[k].summit[0]<-0.5 or self.Edges[k].summit[0]>self.ImgSizeX-0.5 or self.Edges[k].summit[1]<-0.5 or self.Edges[k].summit[1]>self.ImgSizeY-0.5): print("ERROR",self.Edges[k])
 		#???
@@ -811,14 +820,14 @@ class Voronoi(object):
 
 		for e in self.Edges.values():
 			if e.summit is not None:
-				if round(e.base[0],Voronoi.SLVround)==round(e.summit[0],Voronoi.SLVround) and round(e.base[1],Voronoi.SLVround)==round(e.summit[1],Voronoi.SLVround):
+				if abs(e.summit[0]-e.base[0])<Voronoi_atol and abs(e.summit[1]-e.base[1])<Voronoi_atol:
 					e.summit = None
 					continue
 				if e.twin is not None:
 					e2 = self.Edges[e.twin]
 					if e2.summit is not None:
-						assert round(e.base[0],Voronoi.SLVround)==round(e2.base[0],Voronoi.SLVround) \
-						and round(e.base[1],Voronoi.SLVround)==round(e2.base[1],Voronoi.SLVround)
+						assert abs(e.base[0]-e2.base[0])<Voronoi_atol \
+						and abs(e.base[1]-e2.base[1])<Voronoi_atol
 						assert self.Edges[e2.twin]==e
 						e.base = e2.summit
 						e2.summit = None
@@ -878,7 +887,7 @@ class Voronoi(object):
 			#else: print(L,T[L])
 		else:
 			if T[L].direct!=0 or T[L].p0[0]+T[L].p1[0]!=2*T[l].p1[0]:
-				if round(i1[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {T.p} {i1}')
+				if i1[1]+self.Voronoi_atol<=T.p[1]: warnings.warn(f'WARNING: very small step {T.p} {i1}')
 			if Voronoi.debug: print('->V L',i1,T[L],T[l])
 			T.Q.insert(i1[0],i1[1],L,l)
 		i2 = T[r].Intersect(T[R])
@@ -889,10 +898,11 @@ class Voronoi(object):
 				BoundaryUpdated=True
 			#else: print(R,T[R])
 		else:
-			if round(i2[1],Voronoi.SLVround)<=round(T.p[1],Voronoi.SLVround): warnings.warn(f'WARNING: very small step {T.p} {i2}')
+			if i2[1]+self.Voronoi_atol<=T.p[1]: warnings.warn(f'WARNING: very small step {T.p} {i2}')
 			if Voronoi.debug: print('->V R',i2,T[r],T[R])
 			T.Q.insert(i2[0],i2[1],r,R)
 		if BoundaryUpdated: self.ysweep = T.p[1]
+	#END_OF_def afterinsertbetween(self,T,L,R,l,r=None):
 
 	def shrink(self,T):
 		x,y,l,r = T.p
@@ -911,15 +921,13 @@ class Voronoi(object):
 		#T.Q.deleteifhas(L)
 		#T.Q.deleteifhas(r)
 		direct,xb,yb=SweepTable.merge2one(T[l], T[r],x,y)
-		if T[l].direct==1 and round(xb,Voronoi.SLVround)<round(T[l].base[0],Voronoi.SLVround) \
-		or T[r].direct==1 and round(xb,Voronoi.SLVround)<round(T[r].base[0],Voronoi.SLVround) \
-		or T[l].direct==-1 and round(xb,Voronoi.SLVround)>round(T[l].base[0],Voronoi.SLVround) \
-		or T[r].direct==-1 and round(xb,Voronoi.SLVround)>round(T[r].base[0],Voronoi.SLVround):
-			#print(color('Nothing1',31,1),xb,yb,T[l].base,T[r].base)
+		if T[l].direct==1  and xb+self.Voronoi_atol<T[l].base[0] \
+		or T[r].direct==1  and xb+self.Voronoi_atol<T[r].base[0] \
+		or T[l].direct==-1 and xb-self.Voronoi_atol>T[l].base[0] \
+		or T[r].direct==-1 and xb-self.Voronoi_atol>T[r].base[0]:
 			return []
-		if T[l].direct==0 and round(yb,Voronoi.SLVround)<round(T[l].base[1],Voronoi.SLVround) \
-		or T[r].direct==0 and round(yb,Voronoi.SLVround)<round(T[r].base[1],Voronoi.SLVround):
-			#print(color('Nothing2',31,1),xb,yb,T[l].base,T[r].base)
+		if T[l].direct==0  and yb+self.Voronoi_atol<T[l].base[1] \
+		or T[r].direct==0  and yb+self.Voronoi_atol<T[r].base[1]:
 			return []
 		if Voronoi.debug: print('merge:',l,r,'->',(xb,yb))
 		count = next(T.counter)
