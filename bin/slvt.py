@@ -64,7 +64,7 @@ NOTE
 		exit()
 	Options={}
 	S_opt='dDAPTSMhs'
-	L_opt=['calpvd','calArea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','CleanFilledBorder','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale','SmoFactor=','OutPrefix=']
+	L_opt=['calpvd','calArea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','CleanFilledBorder','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale','SmoothFactor=','SmoothNumber=','OutPrefix=']
 	opts,args=getopt.getopt(sys.argv[1:],S_opt,L_opt)
 	if len(args)>0:
 		for arg in args:
@@ -130,15 +130,23 @@ NOTE
 				Options['Resolution'] = n
 		elif opt == '--OutPrefix':
 			Options['OutPrefix'] = arg
-		elif opt == '--SmoFactor':
+		elif opt == '--SmoothNumber':
 			try:
-				SmoFactor=float(arg)
-				assert 0<SmoFactor<1
+				SmoothNumber=int(arg)
+				assert SmoothNumber>0
 			except:
-				sys.exit("ERROR: --SmoFactor "+arg)
+				sys.exit("ERROR: --SmoothNumber "+arg)
 			else:
-				Options['calSmoothMap'] = True
-				Options['SmoFactor'] = SmoFactor
+				Options['SmoothNumber'] = SmoothNumber
+		elif opt == '--SmoothFactor':
+			try:
+				SmoothFactor=float(arg)
+				assert 0<SmoothFactor<1
+			except:
+				sys.exit("ERROR: --SmoothFactor "+arg)
+			else:
+				Options['SmoothFactor'] = SmoothFactor
+				if Options.get('SmoothNumber',0)==0: Options['SmoothNumber'] = 1
 		elif opt == '--accuracy':
 			try:
 				n = int(arg)
