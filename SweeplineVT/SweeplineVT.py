@@ -512,6 +512,7 @@ class Voronoi(object):
 		self.ToCum2D = kwargs.get('cum2d',False)
 		self.ToCalDel = kwargs.pop('Delaunay',False)
 		self.KernelPixelFrac = kwargs.get('KernelPixelFrac',0.5)
+		self.ToRemoveEdgePoint = kwargs.get('RemoveEdgePoint',False)
 		self.Hdr = kwargs.get('Hdr',None)
 		self.OffSetX=0
 		self.OffSetY=0
@@ -1035,10 +1036,11 @@ class Voronoi(object):
 		return
 
 	def CalArea(self,**kwargs):
-		self.ToCum2D=kwargs.pop('cum2d',False)
-		self.ToCalTri=kwargs.pop('calTriangle',False)
-		self.ToCalSmap=kwargs.pop('calSmoothMap',False)
-		RemoveEdgePoint = kwargs.pop('RemoveEdgePoint',False)
+		self.ToCum2D=kwargs.pop('cum2d',self.ToCum2D)
+		self.ToCalTri=kwargs.pop('calTriangle',self.ToCalTri)
+		self.ToCalSmap=kwargs.pop('calSmoothMap',self.ToCalSmap)
+		self.KernelPixelFrac = kwargs.get('KernelPixelFrac',self.KernelPixelFrac)
+		self.ToRemoveEdgePoint = kwargs.pop('RemoveEdgePoint',self.ToRemoveEdgePoint)
 		#for e in self.Edges.values():
 		#	assert e.summit is not None
 		if Voronoi.debug: print(color("\nCalculating Voronoi Cell Areas",32,0))
@@ -1450,7 +1452,7 @@ class Voronoi(object):
 				for n in np.arange(P0.shape[0]):
 					print("%f %f %f %f %f %f %f %f" % (P0[n][0]-self.OffSetX,P0[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight0[n]), file=fout)
 					print("%f %f %f %f %f %f %f %f" % (P1[n][0]-self.OffSetX,P1[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight1[n]), file=fout)
-				if not RemoveEdgePoint:
+				if not self.ToRemoveEdgePoint:
 					Eweighte=np.zeros_like(Ee)
 					for n in np.arange(len(Pe)):
 						Eweighte[n] = Ee[n]/self.Amap[tuple(Pe[n])]
@@ -1484,7 +1486,7 @@ class Voronoi(object):
 				assert np.isclose(np.sum(1./np.array(list(self.Amap.values()))),np.sum(list(self.Smap.values())))
 			else: assert np.isclose(np.sum(1./self.Amap[haveP]),np.sum(self.Smap))
 		########################################################################
-		if RemoveEdgePoint:
+		if self.ToRemoveEdgePoint:
 			for N in self.EdgePoint:
 				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
 			print(color('EdgePoints removed in Amap',34,1))
