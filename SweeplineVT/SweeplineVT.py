@@ -24,7 +24,7 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #vertical,upward: y++
 #horizontal,right: x++
 
-if 1:
+if True:
 	from CweeplineVT import CalCxRightOf,CalIntersect
 else:
 	@jit(float64(float64,float64,float64,float64,int32,float64,float64,float64),nopython=True,cache=True,nogil=True,fastmath=False)
@@ -1081,6 +1081,66 @@ class Voronoi(object):
 				self.Wmap[tuple(P0[n])] += Earea[n]*(E0[n]+E1[n])
 				self.Wmap[tuple(P1[n])] += Earea[n]*(E0[n]+E1[n])
 
+		EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT=self.FindBorderCells(P0,P1,E0,E1)
+		if not self.ToRemoveEdgePoint: 
+			E0e,E1e,Pe,Ee=self.FillBorderCells(P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT)
+
+		if self.ToCum2D:
+			#Calculate the 2D cummulative distribution
+			#1. It's useless
+			#2. Large cells at the image border introduce large error
+			#3. Edge triangles not considered
+			########################################
+			#Divide the image into triangles (smallest pieces, number of triangles = number of edges)
+			#Calculate the weight in each triangle
+			Eweight0=np.zeros_like(Earea)
+			Eweight1=np.zeros_like(Earea)
+			for n in np.arange(P0.shape[0]):
+				Eweight0[n] = Earea[n]/self.Amap[tuple(P0[n])]/len(self.Px)
+				Eweight1[n] = Earea[n]/self.Amap[tuple(P1[n])]/len(self.Px)
+			########################################
+			fourcorner=np.array([[0,0],[0,self.ImgSizeY-1],[self.ImgSizeX-1,0],[self.ImgSizeX-1,self.ImgSizeY-1]])
+			self.CumWmap={}
+			for X,Y in np.vstack((E0,E1,fourcorner)): #all the cell vertexes and four image corners
+				if (X,Y) in self.CumWmap.keys(): continue
+				P0ok=(P0[:,0]<=X)&(P0[:,1]<=Y)
+				P1ok=(P1[:,0]<=X)&(P1[:,1]<=Y)
+				E0ok=(E0[:,0]<=X)&(E0[:,1]<=Y)
+				E1ok=(E1[:,0]<=X)&(E1[:,1]<=Y)
+				ok=np.vstack((P0ok,E0ok,E1ok,P1ok))
+				#Sum all the triangles with at least two vertexes falling inside the integration box
+				self.CumWmap[X,Y] = np.sum(Eweight0[np.sum(ok[:3],axis=0)>=2])+np.sum(Eweight1[np.sum(ok[1:],axis=0)>=2])
+		################################################################################
+		if self.ToCalTri:
+			########################################
+			#Divide the image into triangles (smallest pieces, number of triangles = number of edges)
+			#Calculate the weight (number of points) in each triangle
+			Eweight0=np.zeros_like(Earea)
+			Eweight1=np.zeros_like(Earea)
+			for n in np.arange(P0.shape[0]):
+				Eweight0[n] = Earea[n]/self.Amap[tuple(P0[n])]
+				Eweight1[n] = Earea[n]/self.Amap[tuple(P1[n])]
+			with open(self.FileName+'_Triangles.dat','w') as fout:
+				for n in np.arange(P0.shape[0]):
+					print("%f %f %f %f %f %f %f %f" % (P0[n][0]-self.OffSetX,P0[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight0[n]), file=fout)
+					print("%f %f %f %f %f %f %f %f" % (P1[n][0]-self.OffSetX,P1[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight1[n]), file=fout)
+				if not self.ToRemoveEdgePoint:
+					Eweighte=np.zeros_like(Ee)
+					for n in np.arange(len(Pe)):
+						Eweighte[n] = Ee[n]/self.Amap[tuple(Pe[n])]
+					for n in np.arange(len(Pe)):
+						print("%f %f %f %f %f %f %f %f" % (Pe[n][0]-self.OffSetX,Pe[n][1]-self.OffSetY,E0e[n][0]-self.OffSetX,E0e[n][1]-self.OffSetY,E1e[n][0]-self.OffSetX,E1e[n][1]-self.OffSetY,Ee[n],Eweighte[n]), file=fout)
+				print('>> '+self.FileName+'_Triangles.dat')
+
+		if self.ToCalSmap: self.CalSmap(P0,P1)
+		########################################################################
+		if self.ToRemoveEdgePoint:
+			for N in self.EdgePoint:
+				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
+			print(color('EdgePoints removed in Amap',34,1))
+	#END_OF_def CalArea(self):
+
+	def FindBorderCells(self,P0,P1,E0,E1):
 		################################################################################
 		#Modify open cells at the image edge
 		#Ignore the special cases of the cells at the four corners
@@ -1222,7 +1282,9 @@ class Voronoi(object):
 				print("circle(%d,%d,1) # color=red" % (self.Py[N-1]+1-self.OffSetY,self.Px[N-1]+1-self.OffSetX), file=EPfile)
 			EPfile.close()
 			print(">> "+EPfile.name)
-		########################################################################
+		return EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT
+
+	def FillBorderCells(self,P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT):
 		# For such case where there is no crossing point in one edge of the image (corner quadrangle cell)
 		if len(EpL)==0:
 			assert VyL == [YBeyond,YBelow]
@@ -1328,11 +1390,11 @@ class Voronoi(object):
 					n= np.where((P0[:,0]==x)&(P0[:,1]==y))
 					if len(n)>0:
 						n=n[0][0]
-						print('P0',n,P0[n],EE[n],EE[n-P0.shape[0]])
+						print('P0',n,P0[n]) #,EE[n],EE[n-P0.shape[0]])
 					n= np.where((P1[:,0]==x)&(P1[:,1]==y))
 					if len(n)>0:
 						n=n[0][0]
-						print('P1',n,P1[n],EE[n],EE[n-P1.shape[0]])
+						print('P1',n,P1[n]) #,EE[n],EE[n-P1.shape[0]])
 					#'''
 					raise RuntimeError('ERROR: Edge point Right')
 		########################################################################
@@ -1412,85 +1474,30 @@ class Voronoi(object):
 				for n in range(len(Pe)):
 					print("polygon(%f,%f,%f,%f,%f,%f) # tag={%f}" % (E0e[n][1]+1-self.OffSetY,E0e[n][0]+1-self.OffSetX,E1e[n][1]+1-self.OffSetY,E1e[n][0]+1-self.OffSetX,Pe[n][1]+1-self.OffSetY,Pe[n][0]+1-self.OffSetX,Ee[n]), file=freg)
 				print(">> "+freg.name)
-		################################################################################
-		if self.ToCum2D:
-			#Calculate the 2D cummulative distribution
-			#1. It's useless
-			#2. Large cells at the image border introduce large error
-			#3. Edge triangles not considered
-			########################################
-			#Divide the image into triangles (smallest pieces, number of triangles = number of edges)
-			#Calculate the weight in each triangle
-			Eweight0=np.zeros_like(Earea)
-			Eweight1=np.zeros_like(Earea)
-			for n in np.arange(P0.shape[0]):
-				Eweight0[n] = Earea[n]/self.Amap[tuple(P0[n])]/len(self.Px)
-				Eweight1[n] = Earea[n]/self.Amap[tuple(P1[n])]/len(self.Px)
-			########################################
-			fourcorner=np.array([[0,0],[0,self.ImgSizeY-1],[self.ImgSizeX-1,0],[self.ImgSizeX-1,self.ImgSizeY-1]])
-			self.CumWmap={}
-			for X,Y in np.vstack((E0,E1,fourcorner)): #all the cell vertexes and four image corners
-				if (X,Y) in self.CumWmap.keys(): continue
-				P0ok=(P0[:,0]<=X)&(P0[:,1]<=Y)
-				P1ok=(P1[:,0]<=X)&(P1[:,1]<=Y)
-				E0ok=(E0[:,0]<=X)&(E0[:,1]<=Y)
-				E1ok=(E1[:,0]<=X)&(E1[:,1]<=Y)
-				ok=np.vstack((P0ok,E0ok,E1ok,P1ok))
-				#Sum all the triangles with at least two vertexes falling inside the integration box
-				self.CumWmap[X,Y] = np.sum(Eweight0[np.sum(ok[:3],axis=0)>=2])+np.sum(Eweight1[np.sum(ok[1:],axis=0)>=2])
-		################################################################################
-		if self.ToCalTri:
-			########################################
-			#Divide the image into triangles (smallest pieces, number of triangles = number of edges)
-			#Calculate the weight (number of points) in each triangle
-			Eweight0=np.zeros_like(Earea)
-			Eweight1=np.zeros_like(Earea)
-			for n in np.arange(P0.shape[0]):
-				Eweight0[n] = Earea[n]/self.Amap[tuple(P0[n])]
-				Eweight1[n] = Earea[n]/self.Amap[tuple(P1[n])]
-			with open(self.FileName+'_Triangles.dat','w') as fout:
-				for n in np.arange(P0.shape[0]):
-					print("%f %f %f %f %f %f %f %f" % (P0[n][0]-self.OffSetX,P0[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight0[n]), file=fout)
-					print("%f %f %f %f %f %f %f %f" % (P1[n][0]-self.OffSetX,P1[n][1]-self.OffSetY,E0[n][0]-self.OffSetX,E0[n][1]-self.OffSetY,E1[n][0]-self.OffSetX,E1[n][1]-self.OffSetY,Earea[n],Eweight1[n]), file=fout)
-				if not self.ToRemoveEdgePoint:
-					Eweighte=np.zeros_like(Ee)
-					for n in np.arange(len(Pe)):
-						Eweighte[n] = Ee[n]/self.Amap[tuple(Pe[n])]
-					for n in np.arange(len(Pe)):
-						print("%f %f %f %f %f %f %f %f" % (Pe[n][0]-self.OffSetX,Pe[n][1]-self.OffSetY,E0e[n][0]-self.OffSetX,E0e[n][1]-self.OffSetY,E1e[n][0]-self.OffSetX,E1e[n][1]-self.OffSetY,Ee[n],Eweighte[n]), file=fout)
-				print('>> '+self.FileName+'_Triangles.dat')
-
-		########################################################################
-		if self.ToCalSmap:
-			self.KernelPixelFrac=0.5
-			if type(self.pmap) is dict:
-				self.Smap={k:self.KernelPixelFrac/self.Amap[k] for k in self.Amap.keys()}
-				Nmap={k:0 for k in self.Amap.keys()}
-			else:
-				self.Smap=np.zeros_like(self.Amap)
-				haveP=self.Amap>0
-				self.Smap[haveP]=self.KernelPixelFrac/self.Amap[haveP]
-				Nmap=np.zeros(self.Amap.shape,dtype=np.int16)
-			for n in np.arange(P0.shape[0]):
-				Nmap[tuple(P0[n])]+=1
-				Nmap[tuple(P1[n])]+=1
-			if type(self.pmap) is dict:
-				fmap={k:(1-self.KernelPixelFrac)/Nmap[k]/self.Amap[k] for k in self.Amap.keys()}
-			else:
-				fmap=np.zeros_like(self.Amap)
-				fmap[haveP]=(1-self.KernelPixelFrac)/Nmap[haveP]/self.Amap[haveP]
-			for n in np.arange(P0.shape[0]):
-				self.Smap[tuple(P0[n])] += fmap[tuple(P1[n])]
-				self.Smap[tuple(P1[n])] += fmap[tuple(P0[n])]
-			if type(self.pmap) is dict:
-				assert np.isclose(np.sum(1./np.array(list(self.Amap.values()))),np.sum(list(self.Smap.values())))
-			else: assert np.isclose(np.sum(1./self.Amap[haveP]),np.sum(self.Smap))
-		########################################################################
-		if self.ToRemoveEdgePoint:
-			for N in self.EdgePoint:
-				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
-			print(color('EdgePoints removed in Amap',34,1))
-	#END_OF_def CalArea(self):
+		return E0e,E1e,Pe,Ee
+	def CalSmap(self,P0,P1):
+		if type(self.pmap) is dict:
+			self.Smap={k:self.KernelPixelFrac/self.Amap[k] for k in self.Amap.keys()}
+			Nmap={k:0 for k in self.Amap.keys()}
+		else:
+			self.Smap=np.zeros_like(self.Amap)
+			haveP=self.Amap>0
+			self.Smap[haveP]=self.KernelPixelFrac/self.Amap[haveP]
+			Nmap=np.zeros(self.Amap.shape,dtype=np.int16)
+		for n in np.arange(P0.shape[0]):
+			Nmap[tuple(P0[n])]+=1
+			Nmap[tuple(P1[n])]+=1
+		if type(self.pmap) is dict:
+			fmap={k:(1-self.KernelPixelFrac)/Nmap[k]/self.Amap[k] for k in self.Amap.keys()}
+		else:
+			fmap=np.zeros_like(self.Amap)
+			fmap[haveP]=(1-self.KernelPixelFrac)/Nmap[haveP]/self.Amap[haveP]
+		for n in np.arange(P0.shape[0]):
+			self.Smap[tuple(P0[n])] += fmap[tuple(P1[n])]
+			self.Smap[tuple(P1[n])] += fmap[tuple(P0[n])]
+		if type(self.pmap) is dict:
+			assert np.isclose(np.sum(1./np.array(list(self.Amap.values()))),np.sum(list(self.Smap.values())))
+		else: assert np.isclose(np.sum(1./self.Amap[haveP]),np.sum(self.Smap))
 
 	def CalPVD(self,**kwargs):
 		for k in self.Edges:

@@ -8,7 +8,8 @@ import numpy as np
 from astropy.io import fits
 import json,os
 import time,sys,warnings,os,getopt
-#os.environ['NUMBA_DISABLE_JIT']='1' #disable. not sure whether works
+#sys.path.insert(0,'/home/lewton/Code/SweepLine/SweeplineVT')
+#os.environ['NUMBA_DISABLE_JIT']='1' #disable
 from SweeplineVT import Voronoi
 
 def main():
@@ -63,7 +64,7 @@ NOTE
 		exit()
 	Options={}
 	S_opt='dDAPTSMhs'
-	L_opt=['calpvd','calArea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','CleanFilledBorder','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale','SmoFactor=']
+	L_opt=['calpvd','calArea','calCentroid','caldst','calDelaunay','calTriangle','rmedgepoint','makeCVT','CleanFilledBorder','border=','resolution=','accuracy=','makeimage','help','silent','noautoscale','SmoFactor=','OutPrefix=']
 	opts,args=getopt.getopt(sys.argv[1:],S_opt,L_opt)
 	if len(args)>0:
 		for arg in args:
@@ -127,6 +128,8 @@ NOTE
 			else:
 				if n>=Voronoi.SLVround: raise RuntimeError('--resolution Do you really want such a high resolution?')
 				Options['Resolution'] = n
+		elif opt == '--OutPrefix':
+			Options['OutPrefix'] = arg
 		elif opt == '--SmoFactor':
 			try:
 				SmoFactor=float(arg)
@@ -151,7 +154,7 @@ NOTE
 			Voronoi.debug = True
 	if len(args)>0: sys.exit("I don't understand"+str(args))
 	if 'InputFile' in locals():
-		Options['FileName']=InputFile.rsplit('.',1)[0]
+		Options['FileName']=Options.get('OutPrefix','')+InputFile.rsplit('.',1)[0]
 		if len(InputFile.rsplit('.',1))>1 and InputFile.rsplit('.',1)[1] == 'fits':
 			data,hdr=fits.getdata(InputFile,header=True)
 			Options['Hdr']=hdr
