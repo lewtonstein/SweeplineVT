@@ -500,12 +500,12 @@ class Voronoi(object):
 			default=3. But no rounding on input when "calCentroid".
 		"""
 		#StartTime=time.time()
-		if kwargs.get('Silent',False): warnings.simplefilter('ignore')
+		if kwargs.get('Silent',True): warnings.simplefilter('ignore')
 		self.FileName = kwargs.pop('FileName','tmp')
 		self.ToCalArea = kwargs.pop('calArea',False)
-		self.ToCalPVD = kwargs.pop('calpvd',False)
+		self.ToCalPVD = False #kwargs.pop('calpvd',False)
 		self.ToCalAdj = kwargs.pop('caladj',False)
-		self.ToCalDst = kwargs.get('caldst',False)
+		self.ToCalDst = False #kwargs.get('caldst',False)
 		self.ToCalTri = kwargs.get('calTriangle',False)
 		self.ToCalCtd = kwargs.get('calCentroid',False)
 		self.ToCum2D = kwargs.get('cum2d',False)
@@ -587,7 +587,7 @@ class Voronoi(object):
 				self.RightLimit = xhigh
 				self.TopLimit = yhigh
 				#print(f'Set image size: {xlow:g}~{xhigh:g} {ylow:g}~{yhigh:g}')
-			print(color('Voronoi Construction: '+self.FileName,34,1),end=' ')
+			print(color('Voronoi Tessellation: '+self.FileName,34,1),end=' ')
 			print(f"OffSet: {self.OffSetX} {self.OffSetY} Rescale: {self.scale} ImgSize: {self.ImgSizeX} {self.ImgSizeY}")
 			if np.min(events[:,0])<-0.5 or np.min(events[:,1])<-0.5 or np.max(events[:,0])>self.RightLimit or np.max(events[:,1])>self.TopLimit:
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
@@ -643,12 +643,7 @@ class Voronoi(object):
 
 		self.Construct(**kwargs)
 		if self.ToCalArea: self.CalArea(**kwargs)
-		if self.ToCalCtd:
-			if type(self.Amap) is dict:
-				for (Px,Py) in self.Amap:
-					self.Wmap[(Px,Py)] = (self.Wmap[(Px,Py)]/self.Amap[(Px,Py)]+[Px,Py])/3.
-				#print(list(self.Wmap.values())) print(list(self.Amap.keys()))
-				self.ctdvector=np.array(list(self.Wmap.values()))-np.array(list(self.Amap.keys()))
+		if self.SmoothNumber>0: self.SmoothDensity(**kwargs)
 		if self.ToCalPVD: self.CalPVD(**kwargs)
 		if self.ToCalAdj: self.CalAdj()
 	#END_OF_init
@@ -702,15 +697,19 @@ class Voronoi(object):
 				print('>> '+self.FileName+'_SmoFactor.fits')
 				fits.writeto(self.FileName+'_SmoFactor.fits',self.Smap,self.Hdr,overwrite=True)
 		if self.ToCalCtd:
-			if type(self.Amap) is dict:
-				with open(self.FileName+'_ctd.dat','w') as fout:
-					for (x,y) in self.Amap:
+			with open(self.FileName+'_ctd.dat','w') as fout:
+				for n in range(len(self.Px)):
+					x,y=self.Px[n],self.Py[n]
+					if type(self.Amap) is dict:
 						print(f'{self.pind[x,y][0]:d}	{(x-self.OffSetX)/self.scale:.9g} {(y-self.OffSetY)/self.scale:.9g} {(self.Wmap[x,y][0]-self.OffSetX)/self.scale:.9g} {(self.Wmap[x,y][1]-self.OffSetY)/self.scale:.9g} {self.Amap[x,y]:.9g} {self.pind[x,y][1]:d}',file=fout)
-					print('>>',fout.name)
-				if self.Mode=='image' or self.MakeIntImage:
-					Ps=np.array(list(self.Amap.keys()))
-					np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
-					print('>> '+self.FileName+'_ctd.reg')
+					else:
+						print(f'{self.pmap[x,y]:d}	{(x-self.OffSetX)/self.scale:.9g} {(y-self.OffSetY)/self.scale:.9g} {(self.Wmap[x,y][0]-self.OffSetX)/self.scale:.9g} {(self.Wmap[x,y][1]-self.OffSetY)/self.scale:.9g} {self.Amap[x,y]:.9g}',file=fout)
+				print('>>',fout.name)
+			if self.Mode=='image' or self.MakeIntImage:
+				#Ps=np.array(list(self.Amap.keys()))
+				#np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
+				np.savetxt(self.FileName+'_ctd.reg', np.vstack((self.Py+1,self.Px+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
+				print('>> '+self.FileName+'_ctd.reg')
 		if self.ToCum2D:
 				print('>> '+self.FileName+'_cum2d.dat')
 				np.savetxt(self.FileName+'_cum2d.dat',np.hstack((np.array(list(self.CumWmap.values())).reshape(len(self.CumWmap),1),np.array(list(self.CumWmap.keys()))-[self.OffSetX,self.OffSetY])),fmt='%f	%f	%f')
@@ -723,6 +722,7 @@ class Voronoi(object):
 
 	def Construct(self,**kwargs):
 		if Voronoi.debug: StartTime=time.time()
+		print(color('Sweepline VT Construction',32,0))
 		T = SweepTable(self.Px,self.Py,self.RightLimit,self.TopLimit,atol=self.Voronoi_atol)
 		Q = T.Q
 		pbar = tqdm(total=Q.Stotal-1)
@@ -1037,16 +1037,15 @@ class Voronoi(object):
 
 	def CalArea(self,**kwargs):
 		self.ToCum2D=kwargs.pop('cum2d',self.ToCum2D)
+		self.ToCalCtd = kwargs.get('calCentroid',self.ToCalCtd)
 		self.ToCalTri=kwargs.pop('calTriangle',self.ToCalTri)
-		self.SmoothNumber = kwargs.pop('SmoothNumber',self.SmoothNumber)
-		self.SmoothFactor = kwargs.get('SmoothFactor',self.SmoothFactor)
 		self.ToRemoveEdgePoint = kwargs.pop('RemoveEdgePoint',self.ToRemoveEdgePoint)
 		#for e in self.Edges.values():
 		#	assert e.summit is not None
-		if Voronoi.debug: print(color("\nCalculating Voronoi Cell Areas",32,0))
+		print(color("Calculating Voronoi Cell Areas",32,0))
+		if self.ToCalCtd: self.Wmap={(self.Px[n],self.Py[n]):np.zeros(2,dtype=np.float64) for n in np.arange(self.Px.size)}
 		if type(self.pmap) is dict:
 			self.Amap={(self.Px[n],self.Py[n]):np.float64(0) for n in np.arange(self.Px.size)}
-			if self.ToCalCtd: self.Wmap={(self.Px[n],self.Py[n]):np.zeros(2,dtype=np.float64) for n in np.arange(self.Px.size)}
 			P0 = np.array([e.p0 for e in self.Edges.values()])
 			P1 = np.array([e.p1 for e in self.Edges.values()])
 		else:
@@ -1132,7 +1131,15 @@ class Voronoi(object):
 						print("%f %f %f %f %f %f %f %f" % (Pe[n][0]-self.OffSetX,Pe[n][1]-self.OffSetY,E0e[n][0]-self.OffSetX,E0e[n][1]-self.OffSetY,E1e[n][0]-self.OffSetX,E1e[n][1]-self.OffSetY,Ee[n],Eweighte[n]), file=fout)
 				print('>> '+self.FileName+'_Triangles.dat')
 
-		if self.SmoothNumber>0: self.CalSmap(P0,P1)
+		########################################################################
+		if self.ToCalCtd:
+			self.ctdvector=np.zeros((len(self.Px),2),dtype=np.float64)
+			for n in range(len(self.Px)):
+				Px,Py=self.Px[n],self.Py[n]
+				self.Wmap[(Px,Py)] = (self.Wmap[(Px,Py)]/self.Amap[(Px,Py)]+[Px,Py])/3.
+				self.ctdvector[n]= self.Wmap[(Px,Py)]-np.array([Px,Py])
+			#print(list(self.Wmap.values())) print(list(self.Amap.keys()))
+			#self.ctdvector=np.array(list(self.Wmap.values()))-np.array(list(self.Amap.keys()))
 		########################################################################
 		if self.ToRemoveEdgePoint:
 			for N in self.EdgePoint:
@@ -1283,6 +1290,7 @@ class Voronoi(object):
 			EPfile.close()
 			print(">> "+EPfile.name)
 		return EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT
+	#END_OF_def FindBorderCells(self,P0,P1,E0,E1):
 
 	def FillBorderCells(self,P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT):
 		# For such case where there is no crossing point in one edge of the image (corner quadrangle cell)
@@ -1475,37 +1483,90 @@ class Voronoi(object):
 					print("polygon(%f,%f,%f,%f,%f,%f) # tag={%f}" % (E0e[n][1]+1-self.OffSetY,E0e[n][0]+1-self.OffSetX,E1e[n][1]+1-self.OffSetY,E1e[n][0]+1-self.OffSetX,Pe[n][1]+1-self.OffSetY,Pe[n][0]+1-self.OffSetX,Ee[n]), file=freg)
 				print(">> "+freg.name)
 		return E0e,E1e,Pe,Ee
-	def CalSmapfrom(self,Amap,Nmap,P0,P1):
-		if type(self.pmap) is dict:
-			Smap={k:self.SmoothFactor*Amap[k] for k in Amap.keys()}
-			fmap={k:(1-self.SmoothFactor)/Nmap[k]*Amap[k] for k in Amap.keys()}
+	#END_OF_def FillBorderCells(self,P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT):
+	@staticmethod
+	def PixelOutflow(f1map,Nmap,P0,P1,SmoothFactor):
+		if f1map is dict:
+			Smap={k:SmoothFactor*f1map[k] for k in f1map.keys()}
+			f2map={k:(1-SmoothFactor)*f1map[k]/Nmap[k] for k in f1map.keys()}
 		else:
-			Smap=self.SmoothFactor*Amap
-			fmap=(1-self.SmoothFactor)*Amap
+			Smap=SmoothFactor*f1map
+			f2map=(1-SmoothFactor)*f1map
 			haveP=Nmap>0
-			fmap[haveP]/=Nmap[haveP]
+			f2map[haveP]/=Nmap[haveP]
 		for n in np.arange(P0.shape[0]):
-			Smap[tuple(P0[n])] += fmap[tuple(P1[n])]
-			Smap[tuple(P1[n])] += fmap[tuple(P0[n])]
+			Smap[tuple(P0[n])] += f2map[tuple(P1[n])]
+			Smap[tuple(P1[n])] += f2map[tuple(P0[n])]
 		return Smap
-	def CalSmap(self,P0,P1):
-		if type(self.pmap) is dict:
-			Amap={k:1./self.Amap[k] for k in self.Amap.keys()}
-			Nmap={k:0 for k in self.Amap.keys()}
+	@staticmethod
+	def PixelInflow(dmap,Nmap,P0,P1,SmoothFactor):
+		if dmap is dict:
+			Smap={k:np.float64(0) for k in dmap.keys()}
 		else:
-			Amap=np.zeros_like(self.Amap)
-			haveP=self.Amap>0
-			Amap[haveP]=1./self.Amap[haveP]
-			Nmap=np.zeros(self.Amap.shape,dtype=np.int16)
+			Smap=np.zeros_like(dmap)
+		for n in np.arange(P0.shape[0]):
+			Smap[tuple(P0[n])] += dmap[tuple(P1[n])]
+			Smap[tuple(P1[n])] += dmap[tuple(P0[n])]
+		if dmap is dict:
+			for k in Smap: Smap[k]=dmap[ok]*SmoothFactor+Smap[k]*(1-SmoothFactor)/Nmap[k]
+		else:
+			haveP=Nmap>0
+			Smap*=(1-SmoothFactor)
+			Smap[haveP]/=Nmap[haveP]
+			Smap+=dmap*SmoothFactor
+		return Smap
+	def DivideImage(self,img,MaxDensity=1.,MaxCountPP=3):
+		img1=img.copy()
+		high=img>self.Amap*MaxDensity
+		img1[high]=np.int32(self.Amap[high])
+		img1[img1>MaxCountPP]=MaxCountPP
+		assert np.all(np.argwhere(img>0)==np.argwhere(img1>0))
+		return img1,img-img1
+	def SmoothBackground(self,Cmap,**kwargs):
+		assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
+		assert np.all(Cmap[self.Px,self.Py]>0)
+		assert type(self.pmap) is not dict
+		img1,img2=self.DivideImage(Cmap)
+		self.SmoothDensity(img1,**kwargs)
+		dmap=self.Smap.copy() #full densiy map
+		haveP=img2>0
+		dmap[haveP]+=(img2[haveP]/self.Amap[haveP])
+		return dmap,self.Smap
+	def SmoothDensity(self,Cmap=None,**kwargs):
+		'''
+		1. Smooth density map, not count map. Although the latter keeps the total counts, it is meaningless in the sense of Voronoi smoothing.
+		2. Outflowing from each pixel results in a non-uniform map proportional to Nmap. Both Outflow and Inflow lead to larger total counts.
+		If Cmap=None, 1 is adopted, because the Voronoi class keeps only point positions but not point values.
+		'''
+		print(color("Voronoi Smooothing",32,0))
+		assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
+		self.SmoothNumber = kwargs.pop('SmoothNumber',self.SmoothNumber)
+		self.SmoothFactor = kwargs.get('SmoothFactor',self.SmoothFactor)
+		if type(self.pmap) is dict:
+			P0 = np.array([e.p0 for e in self.Edges.values()])
+			P1 = np.array([e.p1 for e in self.Edges.values()])
+			if Cmap is None: Cmap={k:1. for k in self.Amap.keys()}
+			assert all(Cmap[k]>0 for k in self.Amap.values())
+			Nmap={k:0 for k in self.Amap.keys()}
+			dmap={k:Cmap[k]/self.Amap[k] for k in self.Amap.keys()}
+		else:
+			P0 = np.int32([e.p0 for e in self.Edges.values()])
+			P1 = np.int32([e.p1 for e in self.Edges.values()])
+			if Cmap is None:
+				Cmap = np.zeros_like(self.Amap)
+				Cmap[self.Px,self.Py] = 1
+			Nmap=np.zeros(Cmap.shape,dtype=np.int16)
+			dmap = np.zeros_like(self.Amap)
+			haveP = self.Amap>0
+			dmap[haveP]=Cmap[haveP]/self.Amap[haveP]
 		for n in np.arange(P0.shape[0]):
 			Nmap[tuple(P0[n])]+=1
 			Nmap[tuple(P1[n])]+=1
-		self.Smap=self.CalSmapfrom(Amap,Nmap,P0,P1)
+		self.Smap=self.PixelInflow(dmap,Nmap,P0,P1,self.SmoothFactor)
 		for i in range(1,self.SmoothNumber):
-			self.Smap=self.CalSmapfrom(self.Smap,Nmap,P0,P1)
-		if type(self.pmap) is dict:
-			assert np.isclose(np.sum(1./np.array(list(self.Amap.values()))),np.sum(list(self.Smap.values())))
-		else: assert np.isclose(np.sum(1./self.Amap[haveP]),np.sum(self.Smap))
+			self.Smap=self.PixelInflow(self.Smap,Nmap,P0,P1,self.SmoothFactor)
+			#print(i,np.sum(Cmap),np.sum(self.Smap*self.Amap)) #the total counts becomes larger and larger
+		self.Smap*=(np.sum(Cmap)/np.sum(self.Smap*self.Amap))
 
 	def CalPVD(self,**kwargs):
 		for k in self.Edges:
