@@ -1516,6 +1516,7 @@ class Voronoi(object):
 			Smap+=dmap*SmoothFactor
 		return Smap
 	def DivideImage(self,img,MaxDensity=1.,MaxCountPP=3):
+		#MaxDensity=1 is bad for deep fields like SEP
 		img1=img.copy()
 		high=img>self.Amap*MaxDensity
 		img1[high]=np.int32(self.Amap[high])
