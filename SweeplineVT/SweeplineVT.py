@@ -1144,7 +1144,11 @@ class Voronoi(object):
 		if self.ToRemoveEdgePoint:
 			for N in self.EdgePoint:
 				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
-			print(color('EdgePoints removed in Amap',34,1))
+				self.Px[N-1]=-1
+				self.Py[N-1]=-1
+			self.Px=self.Px[self.Px>=0]
+			self.Py=self.Py[self.Py>=0]
+			print(color('EdgePoints removed',34,1))
 	#END_OF_def CalArea(self):
 
 	def FindBorderCells(self,P0,P1,E0,E1):
@@ -1264,7 +1268,7 @@ class Voronoi(object):
 			N = self.pmap[tuple(P0[n-P0.shape[0]])]
 			EdgePoint.append(N)
 			EpR[N] = EpR.get(N,[])+[EE[n,1]]
-			#print('aa',N,EE[n],self.Px[N-1],self.Py[N-1])
+			#print('a',N,EE[n],self.Px[N-1],self.Py[N-1])
 			if Voronoi.debug: print('line(%.2f,%.2f,%.2f,%.2f)' %(self.Py[N-1]+1,self.Px[N-1]+1,EE[n,1]+1,EE[n,0]+1), file=EPfile)
 			N = self.pmap[tuple(P1[n-P0.shape[0]])]
 			EdgePoint.append(N)
@@ -1541,8 +1545,10 @@ class Voronoi(object):
 		'''
 		print(color("Voronoi Smooothing",32,0))
 		assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
+		assert np.all(Cmap[self.Px,self.Py]>0)
 		self.SmoothNumber = kwargs.pop('SmoothNumber',self.SmoothNumber)
 		self.SmoothFactor = kwargs.get('SmoothFactor',self.SmoothFactor)
+		self.ToRemoveEdgePoint = kwargs.pop('RemoveEdgePoint',self.ToRemoveEdgePoint)
 		if type(self.pmap) is dict:
 			P0 = np.array([e.p0 for e in self.Edges.values()])
 			P1 = np.array([e.p1 for e in self.Edges.values()])
@@ -1567,7 +1573,22 @@ class Voronoi(object):
 		for i in range(1,self.SmoothNumber):
 			self.Smap=self.PixelInflow(self.Smap,Nmap,P0,P1,self.SmoothFactor)
 			#print(i,np.sum(Cmap),np.sum(self.Smap*self.Amap)) #the total counts becomes larger and larger
-		self.Smap*=(np.sum(Cmap)/np.sum(self.Smap*self.Amap))
+		scmap=self.Smap*self.Amap
+		sc=np.log10(scmap[scmap>0])
+		for i in range(3):
+			upper3sigma=np.std(sc)*3+np.median(sc)
+			sc=sc[sc<upper3sigma]
+		reg=(Cmap>0)&(np.log10(scmap)<upper3sigma)
+		self.Smap*=(np.sum(Cmap[reg])/np.sum(self.Smap[reg]*self.Amap[reg]))
+		if self.ToRemoveEdgePoint:
+			for N in self.EdgePoint:
+				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
+				self.Smap[self.Px[N-1],self.Py[N-1]] = 0
+				self.Px[N-1]=-1
+				self.Py[N-1]=-1
+			self.Px=self.Px[self.Px>=0]
+			self.Py=self.Py[self.Py>=0]
+			print(color('EdgePoints removed',34,1))
 
 	def CalPVD(self,**kwargs):
 		for k in self.Edges:
