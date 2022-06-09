@@ -1519,19 +1519,20 @@ class Voronoi(object):
 			Smap[haveP]/=Nmap[haveP]
 			Smap+=dmap*SmoothFactor
 		return Smap
-	def DivideImage(self,img,MaxDensity=1.,MaxCountPP=3):
-		#MaxDensity=1 is bad for deep fields like SEP
+	def DivideImage(self,img,MaxBkgDensity,MaxBkgCountPP):
 		img1=img.copy()
-		high=img>self.Amap*MaxDensity
+		high=img>self.Amap*MaxBkgDensity
 		img1[high]=np.int32(self.Amap[high])
-		img1[img1>MaxCountPP]=MaxCountPP
+		img1[img1>MaxBkgCountPP]=MaxBkgCountPP
 		assert np.all(np.argwhere(img>0)==np.argwhere(img1>0))
 		return img1,img-img1
 	def SmoothBackground(self,Cmap,**kwargs):
+		MaxBkgDensity=kwargs.get('MaxBkgDensity',1.) #MaxBkgDensity=1 is bad for deep fields like SEP
+		MaxBkgCountPP=kwargs.get('MaxBkgCountPP',3)
 		assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
 		assert np.all(Cmap[self.Px,self.Py]>0)
 		assert type(self.pmap) is not dict
-		img1,img2=self.DivideImage(Cmap)
+		img1,img2=self.DivideImage(Cmap,MaxBkgDensity,MaxBkgCountPP)
 		self.SmoothDensity(img1,**kwargs)
 		dmap=self.Smap.copy() #full densiy map
 		haveP=img2>0
@@ -1549,6 +1550,7 @@ class Voronoi(object):
 		self.SmoothNumber = kwargs.pop('SmoothNumber',self.SmoothNumber)
 		self.SmoothFactor = kwargs.get('SmoothFactor',self.SmoothFactor)
 		self.ToRemoveEdgePoint = kwargs.pop('RemoveEdgePoint',self.ToRemoveEdgePoint)
+		Mask=kwargs.pop('Mask',None)
 		if type(self.pmap) is dict:
 			P0 = np.array([e.p0 for e in self.Edges.values()])
 			P1 = np.array([e.p1 for e in self.Edges.values()])
@@ -1563,9 +1565,14 @@ class Voronoi(object):
 				Cmap = np.zeros_like(self.Amap)
 				Cmap[self.Px,self.Py] = 1
 			Nmap=np.zeros(Cmap.shape,dtype=np.int16)
-			dmap = np.zeros_like(self.Amap)
-			haveP = self.Amap>0
-			dmap[haveP]=Cmap[haveP]/self.Amap[haveP]
+			dmap=np.divide(Cmap,self.Amap,out=np.zeros_like(self.Amap),where=self.Amap>0)
+		if Mask is not None:
+			assert type(Mask)==type(self.Amap)
+			good = (Mask[P0[:,0],P0[:,1]]>0)&(Mask[P1[:,0],P1[:,1]]>0)
+			P0m = P0[~good]
+			P1m = P1[~good]
+			P0 = P0[good]
+			P1 = P1[good]
 		for n in np.arange(P0.shape[0]):
 			Nmap[tuple(P0[n])]+=1
 			Nmap[tuple(P1[n])]+=1
@@ -1578,8 +1585,12 @@ class Voronoi(object):
 		for i in range(3):
 			upper3sigma=np.std(sc)*3+np.median(sc)
 			sc=sc[sc<upper3sigma]
-		reg=(Cmap>0)&(np.log10(scmap)<upper3sigma)
+		if Mask is not None: reg=(Cmap>0)&(np.log10(scmap)<upper3sigma)&(Mask>0)
+		else: reg=(Cmap>0)&(np.log10(scmap)<upper3sigma)
 		self.Smap*=(np.sum(Cmap[reg])/np.sum(self.Smap[reg]*self.Amap[reg]))
+		if Mask is not None:
+			self.Smap[P0m[:,0],P0m[:,1]]=dmap[P0m[:,0],P0m[:,1]]
+			self.Smap[P1m[:,0],P1m[:,1]]=dmap[P1m[:,0],P1m[:,1]]
 		if self.ToRemoveEdgePoint:
 			for N in self.EdgePoint:
 				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
