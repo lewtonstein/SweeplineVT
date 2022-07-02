@@ -1489,6 +1489,18 @@ class Voronoi(object):
 		return E0e,E1e,Pe,Ee
 	#END_OF_def FillBorderCells(self,P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT):
 	@staticmethod
+	def anscombe(x):
+		assert np.all(x>=0)
+		y = 2.*np.sqrt(x+3./8.)
+		return y
+	@staticmethod
+	def inverse_anscombe(z):
+		'''
+		Reference: Makitalo, M., & Foi, A. (2011). A closed-form approximation of the exact unbiased inverse of the Anscombe variance-stabilizing transformation. Image Processing.
+		'''
+		return 0.25*np.power(z,2) + 0.25*np.sqrt(1.5)*np.power(z,-1) - 11./8.*np.power(z,-2) + 5./8.*np.sqrt(1.5)*np.power(z,-3) -0.125
+
+	@staticmethod
 	def PixelOutflow(f1map,Nmap,P0,P1,SmoothFactor):
 		if f1map is dict:
 			Smap={k:SmoothFactor*f1map[k] for k in f1map.keys()}
@@ -1521,10 +1533,12 @@ class Voronoi(object):
 		return Smap
 	def DivideImage(self,img,MaxBkgDensity,MaxBkgCountPP):
 		img1=img.copy()
-		high=img>self.Amap*MaxBkgDensity
-		img1[high]=np.int32(self.Amap[high])
+		maximg=np.int32(np.ceil(self.Amap*MaxBkgDensity))
+		high=img>maximg
+		img1[high]=maximg[high]
 		img1[img1>MaxBkgCountPP]=MaxBkgCountPP
 		assert np.all(np.argwhere(img>0)==np.argwhere(img1>0))
+		assert np.all(img1>=0)
 		return img1,img-img1
 	def SmoothBackground(self,Cmap,**kwargs):
 		MaxBkgDensity=kwargs.get('MaxBkgDensity',1.) #MaxBkgDensity=1 is bad for deep fields like SEP
@@ -1533,7 +1547,7 @@ class Voronoi(object):
 		assert np.all(Cmap[self.Px,self.Py]>0)
 		assert type(self.pmap) is not dict
 		img1,img2=self.DivideImage(Cmap,MaxBkgDensity,MaxBkgCountPP)
-		self.SmoothDensity(img1,**kwargs)
+		self.SmoothDensity(Cmap=img1,**kwargs)
 		dmap=self.Smap.copy() #full densiy map
 		haveP=img2>0
 		dmap[haveP]+=(img2[haveP]/self.Amap[haveP])
@@ -1551,6 +1565,7 @@ class Voronoi(object):
 		self.SmoothFactor = kwargs.get('SmoothFactor',self.SmoothFactor)
 		self.ToRemoveEdgePoint = kwargs.pop('RemoveEdgePoint',self.ToRemoveEdgePoint)
 		Mask=kwargs.pop('Mask',None)
+		CutMask=kwargs.pop('CutMask',False)
 		if type(self.pmap) is dict:
 			P0 = np.array([e.p0 for e in self.Edges.values()])
 			P1 = np.array([e.p1 for e in self.Edges.values()])
@@ -1569,17 +1584,22 @@ class Voronoi(object):
 		if Mask is not None:
 			assert type(Mask)==type(self.Amap)
 			good = (Mask[P0[:,0],P0[:,1]]>0)&(Mask[P1[:,0],P1[:,1]]>0)
-			P0m = P0[~good]
-			P1m = P1[~good]
-			P0 = P0[good]
-			P1 = P1[good]
+			bad  = (Mask[P0[:,0],P0[:,1]]<=0)&(Mask[P1[:,0],P1[:,1]]<=0)
+			P0m=P0[bad]
+			P1m=P1[bad]
+			if CutMask:
+				P0 = P0[good]
+				P1 = P1[good]
 		for n in np.arange(P0.shape[0]):
 			Nmap[tuple(P0[n])]+=1
 			Nmap[tuple(P1[n])]+=1
+		ANS=True #It only slightly make the result flatter (~1%)
+		if ANS: dmap=self.anscombe(dmap)
 		self.Smap=self.PixelInflow(dmap,Nmap,P0,P1,self.SmoothFactor)
 		for i in range(1,self.SmoothNumber):
 			self.Smap=self.PixelInflow(self.Smap,Nmap,P0,P1,self.SmoothFactor)
 			#print(i,np.sum(Cmap),np.sum(self.Smap*self.Amap)) #the total counts becomes larger and larger
+		if ANS: self.Smap=self.inverse_anscombe(self.Smap)
 		scmap=self.Smap*self.Amap
 		sc=np.log10(scmap[scmap>0])
 		for i in range(3):
@@ -1587,10 +1607,11 @@ class Voronoi(object):
 			sc=sc[sc<upper3sigma]
 		if Mask is not None: reg=(Cmap>0)&(np.log10(scmap)<upper3sigma)&(Mask>0)
 		else: reg=(Cmap>0)&(np.log10(scmap)<upper3sigma)
-		self.Smap*=(np.sum(Cmap[reg])/np.sum(self.Smap[reg]*self.Amap[reg]))
+		f=np.sum(Cmap[reg])/np.sum(self.Smap[reg]*self.Amap[reg])
+		self.Smap*=f
 		if Mask is not None:
-			self.Smap[P0m[:,0],P0m[:,1]]=dmap[P0m[:,0],P0m[:,1]]
-			self.Smap[P1m[:,0],P1m[:,1]]=dmap[P1m[:,0],P1m[:,1]]
+			self.Smap[P0m[0],P0m[1]]=dmap[P0m[0],P0m[1]]
+			self.Smap[P1m[0],P1m[1]]=dmap[P1m[0],P1m[1]]
 		if self.ToRemoveEdgePoint:
 			for N in self.EdgePoint:
 				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
