@@ -12,6 +12,7 @@ from copy import copy
 import time,sys,warnings
 from tqdm import tqdm
 from numba import jit,boolean,float64,int32
+from scipy.interpolate import griddata
 def _ltshowwarning(message, category, filename, lineno, file=None, line=None):
 	if category==UserWarning: print('\033[33mWARNING\033[0m:',message)
 	else:
@@ -513,6 +514,7 @@ class Voronoi(object):
 		self.SmoothNumber = kwargs.get('SmoothNumber',0)
 		self.SmoothFactor = kwargs.get('SmoothFactor',0.2)
 		self.ToRemoveEdgePoint = kwargs.get('RemoveEdgePoint',False)
+		self.ToMarkEdgePoint = kwargs.get('MarkEdgePoint',False)
 		self.Hdr = kwargs.get('Hdr',None)
 		self.OffSetX=0
 		self.OffSetY=0
@@ -568,19 +570,17 @@ class Voronoi(object):
 				#https://docs.python.org/3/tutorial/floatingpoint.html
 				#Some float numbers do not have exact representations in binary floating point, e.g., float.hex(0.1): '0x1.999999999999ap-4' 0.1!=1-0.9. Luckily int-0.5 seems OK, float.hex(0.5): '0x1.0000000000000p-1'.
 			else:
-				xlow = np.floor(np.min(events[:,0]))-1
-				ylow = np.floor(np.min(events[:,1]))-1
-				xhigh = np.ceil(np.max(events[:,0]))+1
-				yhigh = np.ceil(np.max(events[:,1]))+1
-				xlow = border.get('xlow',xlow)
-				ylow = border.get('ylow',ylow)
-				xhigh = border.get('xhigh',xhigh)
-				yhigh = border.get('yhigh',yhigh)
+				xlow = border['xlow']
+				ylow = border['ylow']
+				xhigh = border['xhigh']
+				yhigh = border['yhigh']
 				self.OffSetX = -0.5-xlow #shift the lower border to -0.5
 				events[:,0] += self.OffSetX
+				xlow += self.OffSetX
 				xhigh += self.OffSetX
 				self.OffSetY = -0.5-ylow #shift the lower border to -0.5
 				events[:,1] += self.OffSetY
+				ylow += self.OffSetY
 				yhigh += self.OffSetY
 				self.ImgSizeX = int(xhigh)+1
 				self.ImgSizeY = int(yhigh)+1
@@ -631,6 +631,7 @@ class Voronoi(object):
 		self.Amap = None
 		self.Wmap = None
 		self.Smap = None
+		self.Vmap = None
 		self.ctdvector=None
 		self.PPdis = None
 		self.Adj = None
@@ -1040,6 +1041,7 @@ class Voronoi(object):
 		self.ToCalCtd = kwargs.get('calCentroid',self.ToCalCtd)
 		self.ToCalTri=kwargs.pop('calTriangle',self.ToCalTri)
 		self.ToRemoveEdgePoint = kwargs.pop('RemoveEdgePoint',self.ToRemoveEdgePoint)
+		self.ToMarkEdgePoint = kwargs.pop('MarkEdgePoint',self.ToMarkEdgePoint)
 		#for e in self.Edges.values():
 		#	assert e.summit is not None
 		print(color("Calculating Voronoi Cell Areas",32,0))
@@ -1081,7 +1083,7 @@ class Voronoi(object):
 				self.Wmap[tuple(P1[n])] += Earea[n]*(E0[n]+E1[n])
 
 		EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT=self.FindBorderCells(P0,P1,E0,E1)
-		if not self.ToRemoveEdgePoint: 
+		if not self.ToRemoveEdgePoint and not self.ToMarkEdgePoint: 
 			E0e,E1e,Pe,Ee=self.FillBorderCells(P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT)
 
 		if self.ToCum2D:
@@ -1141,6 +1143,10 @@ class Voronoi(object):
 			#print(list(self.Wmap.values())) print(list(self.Amap.keys()))
 			#self.ctdvector=np.array(list(self.Wmap.values()))-np.array(list(self.Amap.keys()))
 		########################################################################
+		if self.ToMarkEdgePoint:
+			for N in self.EdgePoint:
+				self.Amap[self.Px[N-1],self.Py[N-1]] = -1
+			print(color('EdgePoints marked as area=-1',34,1))
 		if self.ToRemoveEdgePoint:
 			for N in self.EdgePoint:
 				self.Amap[self.Px[N-1],self.Py[N-1]] = 0
@@ -1520,6 +1526,7 @@ class Voronoi(object):
 			Smap={k:np.float64(0) for k in dmap.keys()}
 		else:
 			Smap=np.zeros_like(dmap)
+			Vmap=np.zeros_like(dmap)
 		for n in np.arange(P0.shape[0]):
 			Smap[tuple(P0[n])] += dmap[tuple(P1[n])]
 			Smap[tuple(P1[n])] += dmap[tuple(P0[n])]
@@ -1527,11 +1534,17 @@ class Voronoi(object):
 			for k in Smap: Smap[k]=dmap[ok]*SmoothFactor+Smap[k]*(1-SmoothFactor)/Nmap[k]
 		else:
 			haveP=Nmap>0
-			Smap*=(1-SmoothFactor)
 			Smap[haveP]/=Nmap[haveP]
+			if 1:
+				for n in np.arange(P0.shape[0]):
+					Vmap[tuple(P0[n])] += (dmap[tuple(P1[n])]-Smap[tuple(P1[n])])**2
+					Vmap[tuple(P1[n])] += (dmap[tuple(P0[n])]-Smap[tuple(P0[n])])**2
+				Vmap[haveP]=np.sqrt(Vmap[haveP]/(Nmap[haveP]-1))/Smap[haveP]
+			Smap*=(1-SmoothFactor)
 			Smap+=dmap*SmoothFactor
-		return Smap
-	def DivideImage(self,img,MaxBkgDensity,MaxBkgCountPP):
+		if 1: return Smap,Vmap
+		else: return Smap
+	def SplitImage(self,img,MaxBkgDensity,MaxBkgCountPP):
 		img1=img.copy()
 		maximg=np.int32(np.ceil(self.Amap*MaxBkgDensity))
 		high=img>maximg
@@ -1546,7 +1559,7 @@ class Voronoi(object):
 		assert np.all(self.Amap[self.Px,self.Py]>0) #self.CalArea done
 		assert np.all(Cmap[self.Px,self.Py]>0)
 		assert type(self.pmap) is not dict
-		img1,img2=self.DivideImage(Cmap,MaxBkgDensity,MaxBkgCountPP)
+		img1,img2=self.SplitImage(Cmap,MaxBkgDensity,MaxBkgCountPP)
 		self.SmoothDensity(Cmap=img1,**kwargs)
 		dmap=self.Smap.copy() #full densiy map
 		haveP=img2>0
@@ -1564,6 +1577,7 @@ class Voronoi(object):
 		self.SmoothNumber = kwargs.pop('SmoothNumber',self.SmoothNumber)
 		self.SmoothFactor = kwargs.get('SmoothFactor',self.SmoothFactor)
 		self.ToRemoveEdgePoint = kwargs.pop('RemoveEdgePoint',self.ToRemoveEdgePoint)
+		self.ToMarkEdgePoint = kwargs.pop('MarkEdgePoint',self.ToMarkEdgePoint)
 		Mask=kwargs.pop('Mask',None)
 		CutMask=kwargs.pop('CutMask',False)
 		if type(self.pmap) is dict:
@@ -1595,11 +1609,22 @@ class Voronoi(object):
 			Nmap[tuple(P1[n])]+=1
 		ANS=True #It only slightly make the result flatter (~1%)
 		if ANS: dmap=self.anscombe(dmap)
-		self.Smap=self.PixelInflow(dmap,Nmap,P0,P1,self.SmoothFactor)
-		for i in range(1,self.SmoothNumber):
-			self.Smap=self.PixelInflow(self.Smap,Nmap,P0,P1,self.SmoothFactor)
-			#print(i,np.sum(Cmap),np.sum(self.Smap*self.Amap)) #the total counts becomes larger and larger
+		#fits.writeto('dmap.fits',dmap)
+		if 1:
+			#self.Smap,self.Vmap=self.PixelInflow(dmap,Nmap,P0,P1,self.SmoothFactor)
+			self.Smap=dmap
+			for i in range(self.SmoothNumber):
+				self.Smap,self.Vmap=self.PixelInflow(self.Smap,Nmap,P0,P1,self.SmoothFactor)
+				#fits.writeto(f'Smap{i}.fits',griddata(np.vstack((self.Px,self.Py)).T,self.Smap[self.Px,self.Py],tuple(np.indices((self.ImgSizeX,self.ImgSizeY))),method='linear',fill_value=np.median(self.Smap[self.Px,self.Py])))
+				#fits.writeto(f'Vmap{i}.fits',griddata(np.vstack((self.Px,self.Py)).T,self.Vmap[self.Px,self.Py],tuple(np.indices((self.ImgSizeX,self.ImgSizeY))),method='linear',fill_value=np.median(self.Vmap[self.Px,self.Py])))
+
+				#print(i,np.sum(Cmap),np.sum(self.Smap*self.Amap)) #the total counts becomes larger and larger
+		else:
+			self.Smap=self.PixelInflow(dmap,Nmap,P0,P1,self.SmoothFactor)
+			for i in range(1,self.SmoothNumber):
+				self.Smap=self.PixelInflow(self.Smap,Nmap,P0,P1,self.SmoothFactor)
 		if ANS: self.Smap=self.inverse_anscombe(self.Smap)
+		#fits.writeto('Smap3.fits',self.Smap)
 		scmap=self.Smap*self.Amap
 		sc=np.log10(scmap[scmap>0])
 		for i in range(3):
@@ -1609,6 +1634,8 @@ class Voronoi(object):
 		else: reg=(Cmap>0)&(np.log10(scmap)<upper3sigma)
 		f=np.sum(Cmap[reg])/np.sum(self.Smap[reg]*self.Amap[reg])
 		self.Smap*=f
+		self.Smap[Cmap<=0]=0
+		#fits.writeto('Smap4.fits',self.Smap)
 		if Mask is not None:
 			self.Smap[P0m[0],P0m[1]]=dmap[P0m[0],P0m[1]]
 			self.Smap[P1m[0],P1m[1]]=dmap[P1m[0],P1m[1]]

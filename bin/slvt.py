@@ -8,7 +8,7 @@ import numpy as np
 from astropy.io import fits
 import json,os
 import time,sys,warnings,os,getopt
-#sys.path.insert(0,'/home/lewton/Code/SweepLine/SweeplineVT')
+sys.path.insert(0,'/home/lewton/Code/SweepLine/SweeplineVT')
 #os.environ['NUMBA_DISABLE_JIT']='1' #disable
 from SweeplineVT import Voronoi
 
@@ -39,7 +39,7 @@ def main():
 Mode 1:
 	slvt.py File [options]
 Mode 2:
-	slvt.py Number --makeCVT --border x1,x2,y1,y2
+	slvt.py Number --makeCVT --border xlow,xhigh,ylow,yhigh
 
 The input File can be:
 	an image
@@ -208,7 +208,7 @@ NOTE
 		vor.OffSetY=yoff
 		vor.saveresults()
 
-#import profile
+import profile
 if __name__ == '__main__':
-	#profile.run('main()')
-	main()
+	profile.run('main()')
+	#main()
