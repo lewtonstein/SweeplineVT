@@ -5,6 +5,8 @@
 #Email: lewtonstein@gmail.com
 ################################################################################
 import numpy as np
+from matplotlib import pyplot as pl
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from astropy.io import fits
 import heapq,json
 import itertools
@@ -24,6 +26,15 @@ color = lambda s,ncolor,nfont: "\033["+str(nfont)+";"+str(ncolor)+"m"+s+"\033[0;
 #p<q if py<qy or py=qy and px<qx
 #vertical,upward: y++
 #horizontal,right: x++
+
+def INT2RGB(RGBint):
+    return np.array([(RGBint >> 16) & 255,(RGBint >> 8) & 255,RGBint & 255])/255.
+def INT2HEX(RGBint):
+    return f'#{(RGBint >> 16)&255:02x}{(RGBint >> 8)&255:02x}{RGBint&255:02x}'
+def RGB2INT(rgb):
+    return ((rgb[0]<<16) + (rgb[1]<<8) + rgb[2])
+def imgRGB2INT(rgb):
+    return ((rgb[:,:,0]<<16) + (rgb[:,:,1]<<8) + rgb[:,:,2])
 
 if True:
 	from CweeplineVT import CalCxRightOf,CalIntersect
@@ -505,6 +516,7 @@ class Voronoi(object):
 		self.FileName = kwargs.pop('FileName','tmp')
 		self.ToCalArea = kwargs.pop('calArea',False)
 		self.ToCalPVD = False #kwargs.pop('calpvd',False)
+		self.ToCalDVD = kwargs.pop('caldvd',False)
 		self.ToCalAdj = kwargs.pop('caladj',False)
 		self.ToCalDst = False #kwargs.get('caldst',False)
 		self.ToCalTri = kwargs.get('calTriangle',False)
@@ -515,6 +527,8 @@ class Voronoi(object):
 		self.SmoothFactor = kwargs.get('SmoothFactor',0.2)
 		self.ToRemoveEdgePoint = kwargs.get('RemoveEdgePoint',False)
 		self.ToMarkEdgePoint = kwargs.get('MarkEdgePoint',False)
+		self.ToGetPoly = kwargs.get('GetPoly',False)
+		self.PolyFile = kwargs.pop('PolyFile',None)
 		self.Hdr = kwargs.get('Hdr',None)
 		self.OffSetX=0
 		self.OffSetY=0
@@ -593,21 +607,24 @@ class Voronoi(object):
 				print(color(f"ERROR: points out of -0.5~{self.RightLimit:g}, -0.5~{self.TopLimit:g}",31,1))
 				exit()
 
-			self.MakeIntImage=kwargs.pop('MakeIntImage',False)
-			if self.MakeIntImage:
+			self.MakeIntImage=kwargs.pop('MakeIntImage',-1) #-1 means do nothing
+			if self.MakeIntImage>=0: #can be 0 (python) or 1 (ds9)
 				if self.ImgSizeX>4096 or self.ImgSizeY>4096:
-					warnings.warn("The image size exceeds 4096. Do you really want to make such a large image? (y/n)")
-					readyn=input()
-					if readyn!='y': exit()
+					warnings.warn("The image size exceeds 4096. Do you really want to make such a large image?")
+					#readyn=input()
+					#if readyn!='y': exit()
 				if self.ImgSizeX<3 or self.ImgSizeY<3:
-					warnings.warn("The image size < 3. Do you really want to make such a large image? (y/n)")
+					warnings.warn("The image size < 3. Do you really want to make such a small image?")
 				pmap = np.zeros((int(self.ImgSizeX),int(self.ImgSizeY)),dtype='float64')
 				if Voronoi.debug: print("init pmap",pmap.shape)
 				with open(self.FileName+'_points.reg','w') as freg:
 					for x,y in events[:,:2]:
-						pmap[int(x+0.5),int(y+0.5)] += 1
-						#print("image;circle(%.2f,%.2f,0.3) # color=red;line(%.2f,%.2f,%d,%d) # color=red" % (y+1,x+1, y+1,x+1, int(y+0.5)+1,int(x+0.5)+1), file=freg)
-						print(f"image;circle({y+1:.2f},{x+1:.2f},0.3) # color=red", file=freg)
+						if self.MakeIntImage==0: 
+							pmap[int(x+0.5),int(y+0.5)] += 1
+							print(f"image;circle({y+1:.2f},{x+1:.2f},0.5) # color=red", file=freg)
+						elif self.MakeIntImage==1:
+							pmap[int(y+0.5),int(x+0.5)] += 1
+							print(f"image;circle({x+1:.2f},{y+1:.2f},0.5) # color=red", file=freg)
 				if self.Hdr is None: self.Hdr=fits.Header()
 				self.Hdr.update({'OffSetX':self.OffSetX})
 				self.Hdr.update({'OffSetY':self.OffSetY})
@@ -618,13 +635,15 @@ class Voronoi(object):
 			Resolution=kwargs.pop('Resolution',3)
 			if not self.ToCalCtd:
 				events[:,:2]=np.round(events[:,:2],Resolution)
-			tmp,ind,cts=np.unique(events[:,1::-1],return_index=True,return_counts=True,axis=0)
+			tmp,ind,cts=np.unique(events[:,1::-1],return_index=True,return_counts=True,axis=0) #switch xy
 			if tmp.shape[0]!=events.shape[0]:
 				warnings.warn(color("found %d duplicated points" % (events.shape[0]-len(tmp)),31,1))
-			self.Py,self.Px = tmp[:,0],tmp[:,1]
+			self.Py,self.Px = tmp[:,0],tmp[:,1] #switch back
 			#if events.shape[1] == 3: value = tmp[:,2] #to be continued
 			self.pmap={(self.Px[n],self.Py[n]):n+1 for n in np.arange(self.Px.size)}
 			self.pind={(self.Px[n],self.Py[n]):[ind[n],cts[n]] for n in np.arange(self.Px.size)}
+			if events.shape[1]>2: self.pID=events[ind,2]
+			else: self.pID=None
 		else: sys.exit('ERROR: image mode or events mode?')
 
 		self.Edges = {}
@@ -632,6 +651,7 @@ class Voronoi(object):
 		self.Wmap = None
 		self.Smap = None
 		self.Vmap = None
+		self.filledmap=None
 		self.ctdvector=None
 		self.PPdis = None
 		self.Adj = None
@@ -641,16 +661,20 @@ class Voronoi(object):
 			self.ToCalPVD = True # need PVD to fill all the cells in the image
 		if self.ToCum2D or self.ToCalTri or self.ToCalCtd or self.SmoothNumber>0:
 			self.ToCalArea = True # need self.Amap
+		if self.ToCalDVD:
+			self.ToCalArea = True
+			self.ToGetPoly = True
 
 		self.Construct(**kwargs)
 		if self.ToCalArea: self.CalArea(**kwargs)
 		if self.SmoothNumber>0: self.SmoothDensity(**kwargs)
 		if self.ToCalPVD: self.CalPVD(**kwargs)
+		if self.ToCalDVD: self.CalDVD(**kwargs)
 		if self.ToCalAdj: self.CalAdj()
 	#END_OF_init
 
 	def saveresults(self):
-		if self.Mode=='image' or self.MakeIntImage:
+		if self.Mode=='image' or self.MakeIntImage>=0:
 			d = np.array([[e.base[1],e.base[0],e.summit[1],e.summit[0],e.p0[1],e.p0[0],e.p1[1],e.p1[0]] for e in self.Edges.values() if e.summit is not None])+1 #-np.array([self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX,self.OffSetY,self.OffSetX])
 			open(self.FileName+'.reg','w').write('image\n')
 			np.savetxt(self.FileName+'.reg',d,fmt="line(%.3f,%.3f,%.3f,%.3f) # tag={%g,%g,%g,%g}",header='image',comments='')
@@ -706,7 +730,7 @@ class Voronoi(object):
 					else:
 						print(f'{self.pmap[x,y]:d}	{(x-self.OffSetX)/self.scale:.9g} {(y-self.OffSetY)/self.scale:.9g} {(self.Wmap[x,y][0]-self.OffSetX)/self.scale:.9g} {(self.Wmap[x,y][1]-self.OffSetY)/self.scale:.9g} {self.Amap[x,y]:.9g}',file=fout)
 				print('>>',fout.name)
-			if self.Mode=='image' or self.MakeIntImage:
+			if self.Mode=='image' or self.MakeIntImage>=0:
 				#Ps=np.array(list(self.Amap.keys()))
 				#np.savetxt(self.FileName+'_ctd.reg', np.vstack((Ps[:,1]+1,Ps[:,0]+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
 				np.savetxt(self.FileName+'_ctd.reg', np.vstack((self.Py+1,self.Px+1,np.sqrt(np.sum(self.ctdvector**2,axis=1)),np.arctan2(self.ctdvector[:,0],self.ctdvector[:,1])*180/np.pi)).T,fmt='# vector(%f,%f,%f,%f) vector=1 width=1')
@@ -859,7 +883,6 @@ class Voronoi(object):
 			if (self.Edges[k].base[0],self.Edges[k].summit[0]) in ((-0.5,self.RightLimit),(self.RightLimit,-0.5)) \
 			or (self.Edges[k].base[1],self.Edges[k].summit[1]) in ((-0.5,self.TopLimit),(self.TopLimit,-0.5)):
 				print('NOTE',self.Edges[k].p0,self.Edges[k].p1,self.Edges[k].base,self.Edges[k].summit)
-		if Voronoi.debug: print('time:',time.time()-StartTime)
 
 	def RenewRightBoundary(self,T):
 		if Voronoi.debug: print(color('EdgeR:',31,1),T[-2],T[T.KL[-2]])
@@ -1042,12 +1065,17 @@ class Voronoi(object):
 		self.ToCalTri=kwargs.pop('calTriangle',self.ToCalTri)
 		self.ToRemoveEdgePoint = kwargs.pop('RemoveEdgePoint',self.ToRemoveEdgePoint)
 		self.ToMarkEdgePoint = kwargs.pop('MarkEdgePoint',self.ToMarkEdgePoint)
+		self.ToGetPoly = kwargs.pop('GetPoly',self.ToGetPoly)
+		self.PolyFile = kwargs.pop('PolyFile',self.PolyFile)
 		#for e in self.Edges.values():
 		#	assert e.summit is not None
 		print(color("Calculating Voronoi Cell Areas",32,0))
 		if self.ToCalCtd: self.Wmap={(self.Px[n],self.Py[n]):np.zeros(2,dtype=np.float64) for n in np.arange(self.Px.size)}
 		if type(self.pmap) is dict:
 			self.Amap={(self.Px[n],self.Py[n]):np.float64(0) for n in np.arange(self.Px.size)}
+			if self.ToGetPoly:
+				self.Rmap={(self.Px[n],self.Py[n]):[] for n in np.arange(self.Px.size)} #Region map
+				self.tang={(self.Px[n],self.Py[n]):[] for n in np.arange(self.Px.size)}
 			P0 = np.array([e.p0 for e in self.Edges.values()])
 			P1 = np.array([e.p1 for e in self.Edges.values()])
 		else:
@@ -1078,13 +1106,78 @@ class Voronoi(object):
 			#self.Edges[KE[n]].PPdist = self.PPdis[n]
 			self.Amap[tuple(P0[n])] += Earea[n]
 			self.Amap[tuple(P1[n])] += Earea[n]
+			if self.ToGetPoly:
+				at0=np.arctan2(E0[n,0]-P0[n,0],E0[n,1]-P0[n,1])
+				at1=np.arctan2(E1[n,0]-P0[n,0],E1[n,1]-P0[n,1])
+				atd=at0-at1
+				if atd>np.pi: atd-=2*np.pi
+				if atd<=-np.pi: atd+=2*np.pi
+				if atd<=0:
+					self.Rmap[tuple(P0[n])].append(E0[n])
+					self.tang[tuple(P0[n])].append(at0)
+				else:
+					self.Rmap[tuple(P0[n])].append(E1[n])
+					self.tang[tuple(P0[n])].append(at1)
+				#if np.round(P0[n,0],3)==15.398 and np.round(P0[n,1],2)==608.84: print(P0[n],P1[n],E0[n],E1[n],at0,at1)
+				at0=np.arctan2(E0[n,0]-P1[n,0],E0[n,1]-P1[n,1])
+				at1=np.arctan2(E1[n,0]-P1[n,0],E1[n,1]-P1[n,1])
+				atd=at0-at1
+				if atd>np.pi: atd-=2*np.pi
+				if atd<=-np.pi: atd+=2*np.pi
+				if atd<=0:
+					self.Rmap[tuple(P1[n])].append(E0[n])
+					self.tang[tuple(P1[n])].append(at0)
+				else:
+					self.Rmap[tuple(P1[n])].append(E1[n])
+					self.tang[tuple(P1[n])].append(at1)
+				#if np.round(P1[n,0],3)==15.398 and np.round(P1[n,1],2)==608.84: print(P0[n],P1[n],E0[n],E1[n],at0,at1)
+				'''
+				at=np.arctan2(P1[n,0]-P0[n,0],P1[n,1]-P0[n,1])
+				self.tang[tuple(P0[n])].append(at)
+				if at>0: at-=np.pi
+				else: at+=np.pi
+				self.tang[tuple(P1[n])].append(at)
+				if np.round(P0[n,0],3)==2876.136 and np.round(P0[n,1],2)==2762.47 or np.round(P1[n,0],3)==2876.136 and np.round(P1[n,1],2)==2762.47:
+					print(P1[n],at)
+				'''
 			if self.ToCalCtd:
 				self.Wmap[tuple(P0[n])] += Earea[n]*(E0[n]+E1[n])
 				self.Wmap[tuple(P1[n])] += Earea[n]*(E0[n]+E1[n])
 
-		EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT=self.FindBorderCells(P0,P1,E0,E1)
-		if not self.ToRemoveEdgePoint and not self.ToMarkEdgePoint: 
-			E0e,E1e,Pe,Ee=self.FillBorderCells(P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT)
+		EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT,XBeyond,XBelow,YBeyond,YBelow=self.FindBorderCells(P0,P1,E0,E1)
+		if not self.ToRemoveEdgePoint and not self.ToMarkEdgePoint or self.ToGetPoly: 
+			E0e,E1e,Pe,Ee=self.FillBorderCells(P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT,XBeyond,XBelow,YBeyond,YBelow)
+			if self.ToGetPoly:
+				for n in range(len(Pe)):
+					at0=np.arctan2(E0e[n][0]-Pe[n][0],E0e[n][1]-Pe[n][1])
+					at1=np.arctan2(E1e[n][0]-Pe[n][0],E1e[n][1]-Pe[n][1])
+					atd=at0-at1
+					if atd>np.pi: atd-=2*np.pi
+					if atd<=-np.pi: atd+=2*np.pi
+					if atd<=0:
+						self.Rmap[tuple(Pe[n])].append(np.array(E0e[n]))
+						self.tang[tuple(Pe[n])].append(at0)
+					else:
+						self.Rmap[tuple(Pe[n])].append(np.array(E1e[n]))
+						self.tang[tuple(Pe[n])].append(at1)
+					#if np.round(Pe[n][0],3)==15.398 and np.round(Pe[n][1],2)==608.84: print(Pe[n],at0,at1,atd)
+
+		if self.ToGetPoly:
+			for n in range(len(self.Px)):
+				Px,Py=self.Px[n],self.Py[n]
+				assert len(self.Rmap[(Px,Py)])==len(self.tang[(Px,Py)])
+				self.Rmap[(Px,Py)] = np.array([self.Rmap[(Px,Py)][i] for i in np.argsort(self.tang[(Px,Py)])])-[self.OffSetX,self.OffSetY]
+			if self.PolyFile is not None:
+				with open(self.PolyFile,'w') as fout:
+					print('image',file=fout)
+					for n in range(len(self.Px)):
+						print('polygon(',end='',file=fout)
+						Px,Py=self.Px[n],self.Py[n]
+						#if np.round(Px,3)==15.398 and np.round(Py,2)==608.84: print(self.Rmap[(Px,Py)])
+						x,y=self.Rmap[(Px,Py)][0]
+						print(f'{x:g},{y:g}',end='',file=fout)
+						for x,y in self.Rmap[(Px,Py)][1:]: print(f',{x:g},{y:g}',end='',file=fout)
+						print(f') # tag={{{len(self.Rmap[(Px,Py)])},{Px},{Py}}}',file=fout)
 
 		if self.ToCum2D:
 			#Calculate the 2D cummulative distribution
@@ -1195,6 +1288,7 @@ class Voronoi(object):
 				assert y1 < y2
 				EpL[self.pmap[x2,y2]] = [-0.5]
 				EpB[self.pmap[x1,y1]] = [-0.5]
+			if Voronoi.debug: print(EE[n],'->',XBelow,YBelow)
 			EE[n] = [XBelow,YBelow]
 		n = np.where((EE[:,0]==-0.5)&(EE[:,1]==self.TopLimit))[0]	#top left
 		if n.size>0:
@@ -1211,6 +1305,7 @@ class Voronoi(object):
 				EpL[self.pmap[x2,y2]] = [self.TopLimit]
 				EpT[self.pmap[x1,y1]] = [-0.5]
 				#print self.pmap[x1,y1],EpT[self.pmap[x1,y1]]
+			if Voronoi.debug: print(EE[n],'->',XBelow,YBeyond)
 			EE[n] = [XBelow,YBeyond]
 		n = np.where((EE[:,0]==self.RightLimit)&(EE[:,1]==-0.5))[0]	#bottom right
 		if n.size>0:
@@ -1225,6 +1320,7 @@ class Voronoi(object):
 				assert y1 > y2
 				EpB[self.pmap[x2,y2]] = [self.RightLimit]
 				EpR[self.pmap[x1,y1]] = [-0.5]
+			if Voronoi.debug: print(EE[n],'->',XBeyond,YBelow)
 			EE[n] = [XBeyond,YBelow]
 		n = np.where((EE[:,0]==self.RightLimit)&(EE[:,1]==self.TopLimit))[0]	#top right
 		if n.size>0:
@@ -1241,6 +1337,7 @@ class Voronoi(object):
 				EpT[self.pmap[x2,y2]] = [self.RightLimit]
 				EpR[self.pmap[x1,y1]] = [self.TopLimit]
 				#print self.pmap[x2,y2],EpT[self.pmap[x2,y2]]
+			if Voronoi.debug: print(EE[n],'->',XBeyond,YBeyond)
 			EE[n] = [XBeyond,YBeyond]
 		################################################################################
 		#Edges touching (crossing) one image edge
@@ -1299,48 +1396,104 @@ class Voronoi(object):
 				print("circle(%d,%d,1) # color=red" % (self.Py[N-1]+1-self.OffSetY,self.Px[N-1]+1-self.OffSetX), file=EPfile)
 			EPfile.close()
 			print(">> "+EPfile.name)
-		return EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT
+		return EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT,XBeyond,XBelow,YBeyond,YBelow
 	#END_OF_def FindBorderCells(self,P0,P1,E0,E1):
 
-	def FillBorderCells(self,P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT):
-		# For such case where there is no crossing point in one edge of the image (corner quadrangle cell)
-		if len(EpL)==0:
-			assert VyL == [YBeyond,YBelow]
-			n = np.argmin(self.Px)
+	def FillBorderCells(self,P0,P1,E0,E1,EpL,EpR,EpB,EpT,VyL,VxB,VyR,VxT,XBeyond,XBelow,YBeyond,YBelow):
+		#print('EpL',EpL)
+		#print('EpR',EpR)
+		#print('EpB',EpB)
+		#print('EpT',EpT)
+		#print('VyL',VyL)
+		#print('VyR',VyR)
+		#print('VxT',VxT)
+		#print('VxB',VxB)
+		if len(EpR)==len(EpT)==0:
+			assert VyR == [YBeyond,YBelow] and VxT == [XBeyond,XBelow]
+			n = np.argmax(self.Px+self.Py)
 			N = self.pmap[self.Px[n],self.Py[n]]
-			assert len(EpB[N])==1 and len(EpT[N])==1 and EpB[N][0]==VxB[0] and EpT[N][0]==VxT[0]
-			EpL[N] = [-0.5, self.TopLimit]
-			EpB[N].append(-0.5)
-			EpT[N].append(-0.5)
-		if len(EpB)==0:
-			assert VxB == [XBeyond,XBelow]
-			n = np.argmin(self.Py)
-			N = self.pmap[self.Px[n],self.Py[n]]
-			#print(EpL.get(N,None),EpR.get(N,None),EpL.get(N,None),'0=',VyL,EpR.get(N,None),'0=',VyR)
-			assert len(EpL[N])==1 and len(EpR[N])==1 and EpL[N][0]==VyL[0] and EpR[N][0]==VyR[0]
-			EpB[N] = [-0.5, self.RightLimit]
-			EpL[N].append(-0.5)
-			EpR[N].append(-0.5)
-		if len(EpR)==0:
-			assert VyR == [YBeyond,YBelow]
-			n = np.argmax(self.Px)
-			N = self.pmap[self.Px[n],self.Py[n]]
-			#print( len(EpB[N]), len(EpT[N])==1, EpB[N][0],VxB[1] ,EpT[N][0],VxT[1])
-			assert len(EpB[N])==1 and len(EpT[N])==1 and EpB[N][0]==VxB[1] and EpT[N][0]==VxT[1]
-			EpR[N] = [-0.5, self.TopLimit]
-			EpB[N].append(self.RightLimit)
-			EpT[N].append(self.RightLimit)
-		if len(EpT)==0:
-			assert VxT == [XBeyond,XBelow]
-			n = np.argmax(self.Py)
-			N = self.pmap[self.Px[n],self.Py[n]]
-			assert len(EpL[N])==1 and len(EpR[N])==1 and EpL[N][0]==VyL[1] and EpR[N][0]==VyR[1]
-			EpT[N] = [-0.5, self.RightLimit]
+			EpR[N] = [-0.5,self.TopLimit] #lower point -0.5 to be filled below with EpB. NO. don't
+			EpT[N] = [-0.5,self.RightLimit] #left point -0.5 to be filled below with EpL. NO. don't
+			assert len(EpL[N])==1
 			EpL[N].append(self.TopLimit)
+			assert len(EpB[N])==1
+			EpB[N].append(self.RightLimit)
+		elif len(EpL)==len(EpT)==0:
+			assert VyL == [YBeyond,YBelow] and VxT == [XBeyond,XBelow]
+			n = np.argmax(-self.Px+self.Py)
+			N = self.pmap[self.Px[n],self.Py[n]]
+			EpL[N] = [-0.5,self.TopLimit]
+			EpT[N] = [-0.5,self.RightLimit]
+			assert len(EpR[N])==1
 			EpR[N].append(self.TopLimit)
+			assert len(EpB[N])==1
+			EpB[N].append(-0.5)
+		elif len(EpR)==len(EpB)==0:
+			assert VyR == [YBeyond,YBelow] and VxB == [XBeyond,XBelow]
+			n = np.argmax(self.Px-self.Py)
+			N = self.pmap[self.Px[n],self.Py[n]]
+			EpR[N] = [-0.5,self.TopLimit]
+			EpB[N] = [-0.5,self.RightLimit]
+			assert len(EpL[N])==1
+			EpL[N].append(-0.5)
+			assert len(EpT[N])==1
+			EpT[N].append(self.RightLimit)
+		elif len(EpL)==len(EpB)==0:
+			assert VyL == [YBeyond,YBelow] and VxB == [XBeyond,XBelow]
+			n = np.argmax(-self.Px-self.Py)
+			N = self.pmap[self.Px[n],self.Py[n]]
+			EpL[N] = [-0.5,self.TopLimit]
+			EpB[N] = [-0.5,self.RightLimit]
+			assert len(EpR[N])==1
+			EpR[N].append(-0.5)
+			assert len(EpT[N])==1
+			EpT[N].append(-0.5)
+		else:
+			# For such case where there is no crossing point in one edge of the image (corner quadrangle cell)
+			if len(EpL)==0:
+				assert VyL == [YBeyond,YBelow]
+				n = np.argmin(self.Px)
+				N = self.pmap[self.Px[n],self.Py[n]]
+				assert len(EpB[N])==1 and len(EpT[N])==1 and EpB[N][0]==VxB[0] and EpT[N][0]==VxT[0]
+				EpL[N] = [-0.5, self.TopLimit]
+				EpB[N].append(-0.5)
+				EpT[N].append(-0.5)
+			if len(EpB)==0:
+				assert VxB == [XBeyond,XBelow]
+				n = np.argmin(self.Py)
+				N = self.pmap[self.Px[n],self.Py[n]]
+				#print(EpL.get(N,None),EpR.get(N,None),EpL.get(N,None),'0=',VyL,EpR.get(N,None),'0=',VyR)
+				assert len(EpL[N])==1 and len(EpR[N])==1 and EpL[N][0]==VyL[0] and EpR[N][0]==VyR[0]
+				EpB[N] = [-0.5, self.RightLimit]
+				EpL[N].append(-0.5)
+				EpR[N].append(-0.5)
+			if len(EpR)==0:
+				assert VyR == [YBeyond,YBelow]
+				n = np.argmax(self.Px)
+				N = self.pmap[self.Px[n],self.Py[n]]
+				assert len(EpB[N])==1 and len(EpT[N])==1 and EpB[N][0]==VxB[1] and EpT[N][0]==VxT[1]
+				EpR[N] = [-0.5, self.TopLimit]
+				EpB[N].append(self.RightLimit)
+				EpT[N].append(self.RightLimit)
+			if len(EpT)==0:
+				assert VxT == [XBeyond,XBelow]
+				n = np.argmax(self.Py)
+				N = self.pmap[self.Px[n],self.Py[n]]
+				assert len(EpL[N])==1 and len(EpR[N])==1 and EpL[N][0]==VyL[1] and EpR[N][0]==VyR[1]
+				EpT[N] = [-0.5, self.RightLimit]
+				EpL[N].append(self.TopLimit)
+				EpR[N].append(self.TopLimit)
 		########################################################################
 		#corner triangle cell and quadrangle cell
 		#make sure each Point has two Edge points
+		#print('EpL',EpL)
+		#print('EpR',EpR)
+		#print('EpB',EpB)
+		#print('EpT',EpT)
+		#print('VyL',VyL)
+		#print('VyR',VyR)
+		#print('VxT',VxT)
+		#print('VxB',VxB)
 		for N in EpL:
 			x,y = self.Px[N-1],self.Py[N-1]
 			if len(EpL[N])==1:
@@ -1368,6 +1521,8 @@ class Voronoi(object):
 					EpB[N].append(-0.5)
 				elif EpL[N][0]==VyL[1] and N in EpT.keys():
 					#Only one cross point in this edge. N refers to the left top pixel
+					#print(N,EpT[N],EpL[N],EpT[N])
+					#print(VxT[0],self.RightLimit)
 					assert len(EpT[N])==1 and EpT[N][0]==min(VxT[0],self.RightLimit)
 					EpL[N].append(self.TopLimit)
 					EpT[N].append(-0.5)
@@ -1648,6 +1803,77 @@ class Voronoi(object):
 			self.Px=self.Px[self.Px>=0]
 			self.Py=self.Py[self.Py>=0]
 			print(color('EdgePoints removed',34,1))
+
+	def CalDVD(self,**kwargs):
+		#Still has a problem as shown in problem_DVD_20230502.png !!!!
+		#pixel at the vertex is set by later (larger number) edges although the earlier one is correct
+		ImgSizeX=self.ImgSizeX
+		ImgSizeY=self.ImgSizeY
+		#print(ImgSizeX,ImgSizeY)
+		NP=2 #2 pixels padding
+		fig = pl.Figure(figsize=((ImgSizeX+NP*2)/100, (ImgSizeY+NP*2)/100), dpi=100)
+		canvas = FigureCanvas(fig)
+		ax = fig.add_axes([0,0,1,1])
+		for n in tqdm(np.arange(0,len(self.Px))):
+			polygon=np.array(self.Rmap[(self.Px[n],self.Py[n])])+NP+[self.OffSetX,self.OffSetY]
+			ax.fill(polygon[:,0],polygon[:,1],color=INT2RGB(n+1),edgecolor='None',aa=False)
+			#it fills each polygon correctly, but some pixels whose center is just outside the border are included
+			#so the cells filled later will be larger and the ones done earlier will be smaller
+		ax.set_xlim(-0.5,ImgSizeX+-0.5+NP*2)
+		ax.set_ylim(-0.5,ImgSizeY+-0.5+NP*2)
+		canvas.draw()
+		assert canvas.get_width_height()==(fig.figure.get_window_extent().width,fig.figure.get_window_extent().height)
+		d=np.int32(np.frombuffer(canvas.tostring_rgb(), dtype='uint8').reshape(ImgSizeY+NP*2,ImgSizeX+NP*2,3))
+		i=imgRGB2INT(d)
+		self.filledmap=i[ImgSizeY+NP-1:NP-1:-1,NP:ImgSizeX+NP]
+		#fits.writeto('tmp1.fits',self.filledmap,overwrite=True)
+
+		ax.clear()
+		#st=time.time()
+		for n in tqdm(self.Edges.keys()):
+			e=self.Edges[n] #positions in Python format
+			ax.plot((e.base[0]+NP,e.summit[0]+NP),(e.base[1]+NP,e.summit[1]+NP),color=INT2RGB(n),lw=0.1,aa=False)
+		#It's funny that the loop above is faster than the no-loop method below.
+		#I guess the loop in the plot() function is inefficient
+		#lineset=[((self.Edges[n].base[0]+NP,self.Edges[n].summit[0]+NP),(self.Edges[n].base[1]+NP,self.Edges[n].summit[1]+NP),INT2HEX(n)) for n in self.Edges.keys()]
+		#ax.plot(*tqdm(itertools.chain.from_iterable(lineset)),lw=0.1,aa=False)
+		#print(time.time()-st)
+		ax.set_xlim(-0.5,ImgSizeX+-0.5+NP*2)
+		ax.set_ylim(-0.5,ImgSizeY+-0.5+NP*2)
+		canvas.draw()
+		assert canvas.get_width_height()==(fig.figure.get_window_extent().width,fig.figure.get_window_extent().height)
+		d=np.int32(np.frombuffer(canvas.tostring_rgb(), dtype='uint8').reshape(ImgSizeY+NP*2,ImgSizeX+NP*2,3))
+		i=imgRGB2INT(d)
+		lmap=i[ImgSizeY+NP-1:NP-1:-1,NP:ImgSizeX+NP]
+		#fits.writeto('tmp2.fits',lmap,overwrite=True)
+	
+		if 0: #line drawn later will overwrite the correct point. try to identify such pixels in order to make correction.
+			#But this plotting does not yet work. It's unclear which pixel is plotted
+			ax.clear()
+			pset=[([e.base[0]+NP],[e.base[1]+NP],'b,',[e.summit[0]+NP],[e.summit[1]+NP],'r,') for e in self.Edges.values()] #seems "," pixel marker often offset
+			#pset=[([e.base[0]+NP],[e.base[1]+NP],'bs',[e.summit[0]+NP],[e.summit[1]+NP],'rs') for e in self.Edges.values()] #seems "," pixel marker often offset
+			ax.plot(*tqdm(itertools.chain.from_iterable(pset)),aa=False,ms=0.1)
+			ax.set_xlim(-0.5,ImgSizeX+-0.5+NP*2)
+			ax.set_ylim(-0.5,ImgSizeY+-0.5+NP*2)
+			canvas.draw()
+			assert canvas.get_width_height()==(fig.figure.get_window_extent().width,fig.figure.get_window_extent().height)
+			d=np.int32(np.frombuffer(canvas.tostring_rgb(), dtype='uint8').reshape(ImgSizeY+NP*2,ImgSizeX+NP*2,3))
+			i=imgRGB2INT(d)
+			fits.writeto('tmp3.fits',i[ImgSizeY+NP-1:NP-1:-1,NP:ImgSizeX+NP],overwrite=True)
+			#exit()
+
+		edgepixels=lmap!=16777215
+		XY=np.argwhere(edgepixels)
+		XY0=np.array([self.Edges[lmap[x,y]].p0 for x,y in XY])
+		XY1=np.array([self.Edges[lmap[x,y]].p1 for x,y in XY])
+		IP0=np.array([self.pmap[x,y] for x,y in XY0])
+		IP1=np.array([self.pmap[x,y] for x,y in XY1])
+		ok=(XY0[:,0]-XY[:,1])**2+(XY0[:,1]-XY[:,0])**2<(XY1[:,0]-XY[:,1])**2+(XY1[:,1]-XY[:,0])**2
+		lmap[XY[ok,0],XY[ok,1]]=IP0[ok]
+		lmap[XY[~ok,0],XY[~ok,1]]=IP1[~ok]
+		self.filledmap[edgepixels]=lmap[edgepixels]
+		if self.pID is not None: self.filledmap=self.pID[self.filledmap-1]
+	#END_OF_def CalDVD(self,**kwargs):
 
 	def CalPVD(self,**kwargs):
 		for k in self.Edges:
