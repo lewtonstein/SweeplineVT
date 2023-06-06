@@ -1513,9 +1513,23 @@ class Voronoi(object):
 						EpL[N].append(-0.5)
 						assert len(EpB[N])==1
 						EpB[N].append(-0.5)
+				#elif EpL[N][0]==VyL[0] and N in EpB.keys(): #divide into 3 cases below
+				#	#N refers to the left bottom pixel
+				#	#print(x,y,N,EpL[N],EpB[N],VxB)
+				#	assert len(EpB[N])==1 and EpB[N][0]==min(VxB[0],self.RightLimit)
+				#	EpL[N].append(-0.5)
+				#	EpB[N].append(-0.5)
+				elif EpL[N][0]==VyL[0] and N in EpB.keys() and N in EpT.keys() and N in EpL.keys():
+					#Voronoi_second_corner_pixel.png, touching 3 edges but not the very-corner pixel
+					assert len(EpB[N])==2
+					assert len(EpT[N])==1 and EpT[N][0]==min(VxT[0],self.RightLimit)
+					assert len(EpL[N])==1 and EpL[N][0]==max(VyL[-1],-0.5)
+					EpL[N].append(self.TopLimit)
+					EpT[N].append(-0.5)
+				elif EpL[N][0]==VyL[0] and N in EpB.keys() and N in EpL.keys() and len(EpB[N])==len(EpL[N])==2:
+					#like Voronoi_second_corner_pixel.png, but touching only B and L and not T
+					pass
 				elif EpL[N][0]==VyL[0] and N in EpB.keys():
-					#N refers to the left bottom pixel
-					#print(x,y,N,EpL[N],EpB[N],VxB)
 					assert len(EpB[N])==1 and EpB[N][0]==min(VxB[0],self.RightLimit)
 					EpL[N].append(-0.5)
 					EpB[N].append(-0.5)
@@ -1549,6 +1563,20 @@ class Voronoi(object):
 						EpR[N].append(-0.5)
 						assert len(EpB[N])==1
 						EpT[N].append(self.RightLimit)
+				#elif EpR[N][0]==VyR[0] and N in EpB.keys():
+				#	assert len(EpB[N])==1 and EpB[N][0]==max(VxB[1],-0.5)
+				#	EpR[N].append(-0.5)
+				#	EpB[N].append(self.RightLimit)
+				elif EpR[N][0]==VyR[0] and N in EpB.keys() and N in EpR.keys() and N in EpT.keys():
+					#Voronoi_second_corner_pixel.png, touching 3 edges but not the very-corner pixel
+					assert len(EpB[N])==2
+					assert len(EpT[N])==1 and EpT[N][0]==max(VxT[-1],-0.5)
+					assert len(EpR[N])==1 and EpR[N][0]==max(VyR[-1],-0.5)
+					EpR[N].append(self.TopLimit)
+					EpT[N].append(self.RightLimit)
+				elif EpR[N][0]==VyR[0] and N in EpB.keys() and N in EpR.keys() and len(EpB[N])==len(EpR[N])==2:
+					#like Voronoi_second_corner_pixel.png, but touching only B and L and not T
+					pass
 				elif EpR[N][0]==VyR[0] and N in EpB.keys():
 					assert len(EpB[N])==1 and EpB[N][0]==max(VxB[1],-0.5)
 					EpR[N].append(-0.5)
